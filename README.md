@@ -9,6 +9,7 @@ An MCP (Model Context Protocol) server for automating App Store screenshot captu
 - **App Store Optimization**: Pre-configured for iPhone 6.9" and iPad 13" (the only required sizes)
 - **Status Bar Control**: Set clean status bar (9:41, full battery, WiFi) automatically
 - **App Management**: Install, launch, and navigate apps for screenshot automation
+- **UI Interaction**: Tap, swipe, scroll, and type to navigate apps to specific screens
 - **Validation**: Verify screenshots meet App Store requirements
 
 ## Installation
@@ -103,6 +104,17 @@ args = ["-y", "appstore-screenshot-mcp"]
 | `list_apps` | List installed apps |
 | `get_app_container` | Get app data/container path |
 
+### UI Interaction
+
+| Tool | Description |
+|------|-------------|
+| `ui_tap` | Tap at specific coordinates (in points) |
+| `ui_swipe` | Swipe from one point to another |
+| `ui_scroll` | Scroll in a direction (up/down/left/right) |
+| `ui_type` | Type text into focused input field |
+| `ui_press_button` | Press hardware buttons (home, lock, volume, shake, toggleAppearance) |
+| `get_ui_tree` | Get accessibility tree for finding element coordinates |
+
 ## App Store Screenshot Sizes (2024+)
 
 Apple simplified requirements - only two sizes are mandatory:
@@ -152,6 +164,17 @@ set_status_bar(
 )
 ```
 
+### Navigate with UI Interactions
+
+```
+1. Launch app: launch_app(bundleId: "com.example.myapp")
+2. Tap settings button: ui_tap(x: 350, y: 50)
+3. Scroll down: ui_scroll(direction: "down", distance: 400)
+4. Type in search: ui_type(text: "profile")
+5. Toggle dark mode: ui_press_button(button: "toggleAppearance")
+6. Capture screenshot: capture_screenshot(outputPath: "./screenshots/settings-dark.png")
+```
+
 ## Resources
 
 The server exposes an MCP resource for device configurations:
@@ -180,12 +203,13 @@ npm run typecheck
 
 ## How It Works
 
-The server wraps `xcrun simctl` commands to provide:
+The server wraps `xcrun simctl` commands and AppleScript to provide:
 
 1. **Device Creation**: Uses `simctl create` with exact device type identifiers for App Store sizes
 2. **Status Bar Override**: Uses `simctl status_bar override` for clean screenshots
 3. **Screenshot Capture**: Uses `simctl io screenshot` with `--mask=black` for notch handling
 4. **App Control**: Uses `simctl install/launch/terminate` for app lifecycle
+5. **UI Interaction**: Uses AppleScript to control Simulator.app for taps, swipes, and keyboard input
 
 All commands are executed via Node.js child processes with proper error handling.
 

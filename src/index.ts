@@ -12,6 +12,7 @@ import { z } from "zod";
 import { simulatorTools } from "./tools/simulator/index.js";
 import { screenshotTools } from "./tools/screenshot/index.js";
 import { appTools } from "./tools/app/index.js";
+import { uiTools } from "./tools/ui/index.js";
 import { APP_STORE_DEVICES } from "./types/index.js";
 import { commandExists } from "./utils/exec.js";
 
@@ -31,7 +32,7 @@ function createServer(): McpServer {
   });
 
   // Register all tools from each module
-  const allTools = [...simulatorTools, ...screenshotTools, ...appTools];
+  const allTools = [...simulatorTools, ...screenshotTools, ...appTools, ...uiTools];
 
   for (const tool of allTools) {
     server.tool(
