@@ -68,7 +68,7 @@ export const captureAllAppStoreSchema = z.object({
     .default(true)
     .describe("Set clean status bar before capture"),
   deviceClasses: z
-    .array(z.enum(["iphone_6.9", "iphone_6.7", "ipad_13", "ipad_12.9"]))
+    .array(z.enum(["iphone_6.9", "ipad_13"]))
     .optional()
     .default(["iphone_6.9", "ipad_13"])
     .describe("Device classes to capture (defaults to iPhone 6.9\" and iPad 13\")"),
@@ -138,10 +138,86 @@ export const validateScreenshotSchema = z.object({
     .string()
     .describe("Path to the screenshot file to validate"),
   expectedDeviceClass: z
-    .enum(["iphone_6.9", "iphone_6.7", "ipad_13", "ipad_12.9"])
+    .enum(["iphone_6.9", "ipad_13"])
     .optional()
     .describe("Expected App Store device class"),
 });
+
+const JPEG_START_MARKER = 0xd8;
+const JPEG_SOF_MARKERS = new Set([
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+]);
+
+function parsePngDimensions(buffer: Buffer): { width: number; height: number } | null {
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buffer.subarray(0, 8).equals(pngSignature)) {
+    return null;
+  }
+
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
+function parseJpegDimensions(buffer: Buffer): { width: number; height: number } | null {
+  if (buffer[0] !== 0xff || buffer[1] !== JPEG_START_MARKER) {
+    return null;
+  }
+
+  let offset = 2;
+  while (offset < buffer.length) {
+    if (buffer[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    const marker = buffer[offset + 1];
+    offset += 2;
+
+    if (marker === 0xd9 || marker === 0xda) {
+      break;
+    }
+
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      continue;
+    }
+
+    if (offset + 2 > buffer.length) {
+      break;
+    }
+
+    const segmentLength = buffer.readUInt16BE(offset);
+    if (segmentLength < 2 || offset + segmentLength > buffer.length) {
+      break;
+    }
+
+    if (JPEG_SOF_MARKERS.has(marker)) {
+      if (offset + 7 > buffer.length) {
+        break;
+      }
+      return {
+        height: buffer.readUInt16BE(offset + 3),
+        width: buffer.readUInt16BE(offset + 5),
+      };
+    }
+
+    offset += segmentLength;
+  }
+
+  return null;
+}
+
+function matchesResolution(
+  width: number,
+  height: number,
+  resolution: { width: number; height: number }
+): boolean {
+  return (
+    (width === resolution.width && height === resolution.height) ||
+    (width === resolution.height && height === resolution.width)
+  );
+}
 
 /**
  * Apply status bar overrides
@@ -440,32 +516,32 @@ export async function validateScreenshot(
     };
   }
 
-  // Read PNG header to get dimensions
+  // Read image header to get dimensions
   const buffer = readFileSync(fullPath);
+  const pngDimensions = parsePngDimensions(buffer);
+  const jpegDimensions = pngDimensions ? null : parseJpegDimensions(buffer);
+  const dimensions = pngDimensions ?? jpegDimensions;
 
-  // Check PNG signature
-  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  if (!buffer.subarray(0, 8).equals(pngSignature)) {
+  if (!dimensions) {
     return {
       content: [
         {
           type: "text",
-          text: "File is not a valid PNG image. App Store requires PNG or JPEG format.",
+          text: "File is not a valid PNG or JPEG image. App Store requires PNG or JPEG format.",
         },
       ],
       isError: true,
     };
   }
 
-  // Parse IHDR chunk for dimensions (starts at byte 16)
-  const width = buffer.readUInt32BE(16);
-  const height = buffer.readUInt32BE(20);
+  const format = pngDimensions ? "PNG" : "JPEG";
+  const { width, height } = dimensions;
   const fileSizeBytes = buffer.length;
   const fileSizeMB = fileSizeBytes / (1024 * 1024);
 
   const issues: string[] = [];
   const validations = {
-    format: "PNG (valid)",
+    format: `${format} (valid)`,
     width,
     height,
     fileSizeMB: fileSizeMB.toFixed(2),
@@ -481,15 +557,17 @@ export async function validateScreenshot(
   if (expectedDeviceClass) {
     const expectedConfig = APP_STORE_DEVICES[expectedDeviceClass];
     if (expectedConfig) {
-      const { resolution } = expectedConfig;
-      // Check both portrait and landscape orientations
-      const matchesPortrait = width === resolution.width && height === resolution.height;
-      const matchesLandscape = width === resolution.height && height === resolution.width;
+      const matchesExpected = expectedConfig.acceptedResolutions.some((resolution) =>
+        matchesResolution(width, height, resolution)
+      );
 
-      if (!matchesPortrait && !matchesLandscape) {
+      if (!matchesExpected) {
+        const expectedList = expectedConfig.acceptedResolutions
+          .map((resolution) => `${resolution.width}x${resolution.height}`)
+          .join(", ");
         issues.push(
           `Dimensions (${width}x${height}) don't match ${expectedDeviceClass} ` +
-            `(expected ${resolution.width}x${resolution.height} or ${resolution.height}x${resolution.width})`
+            `(expected ${expectedList} or their landscape equivalents)`
         );
       }
     }
@@ -498,11 +576,10 @@ export async function validateScreenshot(
   // Find matching App Store device class
   let matchedDevice: string | null = null;
   for (const [deviceClass, config] of Object.entries(APP_STORE_DEVICES)) {
-    const { resolution } = config;
-    if (
-      (width === resolution.width && height === resolution.height) ||
-      (width === resolution.height && height === resolution.width)
-    ) {
+    const matchesClass = config.acceptedResolutions.some((resolution) =>
+      matchesResolution(width, height, resolution)
+    );
+    if (matchesClass) {
       matchedDevice = deviceClass;
       break;
     }

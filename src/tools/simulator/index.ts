@@ -34,7 +34,7 @@ export const listSimulatorsSchema = z.object({
 
 export const bootAppStoreSimulatorSchema = z.object({
   deviceClass: z
-    .enum(["iphone_6.9", "iphone_6.7", "ipad_13", "ipad_12.9"])
+    .enum(["iphone_6.9", "ipad_13"])
     .describe("App Store device class to create"),
   runtime: z
     .string()
@@ -195,7 +195,8 @@ export async function bootAppStoreSimulator(
                 udid: existing.udid,
                 name: existing.name,
                 deviceClass,
-                resolution: deviceConfig.resolution,
+                primaryResolution: deviceConfig.primaryResolution,
+                acceptedResolutions: deviceConfig.acceptedResolutions,
                 appStoreClass: deviceConfig.appStoreClass,
               },
               null,
@@ -243,7 +244,8 @@ export async function bootAppStoreSimulator(
             deviceClass,
             deviceType: deviceConfig.deviceType,
             runtime: runtimeId,
-            resolution: deviceConfig.resolution,
+            primaryResolution: deviceConfig.primaryResolution,
+            acceptedResolutions: deviceConfig.acceptedResolutions,
             appStoreClass: deviceConfig.appStoreClass,
           },
           null,
