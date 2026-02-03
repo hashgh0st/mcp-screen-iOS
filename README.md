@@ -1,12 +1,12 @@
 # appstore-screenshot-mcp
 
-An MCP (Model Context Protocol) server for automating App Store screenshot capture from iOS Simulator. Optimized for the 2024+ App Store requirements where only two screenshot sizes are mandatory.
+An MCP (Model Context Protocol) server for automating App Store screenshot capture from iOS Simulator. Optimized for the 2026 App Store requirements with 6.9" iPhone and 13" iPad buckets plus accepted fallback pixel sizes.
 
 ## Features
 
 - **Simulator Management**: List, boot, and shutdown iOS simulators with App Store-specific presets
 - **Screenshot Capture**: Capture screenshots at native resolution with automatic status bar cleanup
-- **App Store Optimization**: Pre-configured for iPhone 6.9" and iPad 13" (the only required sizes)
+- **App Store Optimization**: Pre-configured for iPhone 6.9" and iPad 13" buckets with all accepted pixel sizes
 - **Status Bar Control**: Set clean status bar (9:41, full battery, WiFi) automatically
 - **App Management**: Install, launch, and navigate apps for screenshot automation
 - **UI Interaction**: Tap, swipe, scroll, and type to navigate apps to specific screens
@@ -152,6 +152,7 @@ args = ["-y", "appstore-screenshot-mcp"]
 | `find_element` | Search for elements by label, identifier, or type |
 | `get_screen_info` | Get screen dimensions and device info |
 
+## App Store Screenshot Sizes (2026)
 ### Privacy Permissions
 
 | Tool | Description |
@@ -209,14 +210,14 @@ args = ["-y", "appstore-screenshot-mcp"]
 
 ## App Store Screenshot Sizes (2024+)
 
-Apple simplified requirements - only two sizes are mandatory:
+Apple's 2026 requirements focus on two primary display buckets, with multiple accepted pixel sizes per bucket:
 
-| Platform | Required Size | Dimensions | Simulator |
-|----------|--------------|------------|-----------|
-| **iPhone** | 6.9" | 1320x2868 | iPhone 16 Pro Max |
-| **iPad** | 13" | 2064x2752 | iPad Pro 13" (M4) |
+| Platform | Required Size | Accepted Dimensions (portrait) | Recommended Simulator |
+|----------|--------------|--------------------------------|-----------------------|
+| **iPhone** | 6.9" (or 6.5" if 6.9" isn't provided) | 1320x2868, 1290x2796, 1260x2736 | iPhone 16 Pro Max |
+| **iPad** | 13" | 2064x2752, 2048x2732 | iPad Pro 13" (M4) |
 
-All other sizes auto-scale from these primary screenshots.
+The server validates against all accepted sizes for each bucket and reports whether a screenshot matches in portrait or landscape.
 
 ## Example Workflows
 

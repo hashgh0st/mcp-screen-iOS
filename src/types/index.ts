@@ -63,40 +63,41 @@ export interface SimctlListOutput {
 export interface AppStoreDeviceConfig {
   name: string;
   deviceType: string;
-  resolution: {
+  primaryResolution: {
     width: number;
     height: number;
   };
+  acceptedResolutions: Array<{
+    width: number;
+    height: number;
+  }>;
   appStoreClass: string;
 }
 
 /**
- * App Store device presets - only the two required sizes
+ * App Store device presets - 2026 requirements
  */
 export const APP_STORE_DEVICES: Record<string, AppStoreDeviceConfig> = {
   "iphone_6.9": {
     name: "iPhone 16 Pro Max",
     deviceType: "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
-    resolution: { width: 1320, height: 2868 },
+    primaryResolution: { width: 1320, height: 2868 },
+    acceptedResolutions: [
+      { width: 1320, height: 2868 },
+      { width: 1290, height: 2796 },
+      { width: 1260, height: 2736 },
+    ],
     appStoreClass: "6.9 inch",
-  },
-  "iphone_6.7": {
-    name: "iPhone 15 Pro Max",
-    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro-Max",
-    resolution: { width: 1290, height: 2796 },
-    appStoreClass: "6.7 inch",
   },
   "ipad_13": {
     name: "iPad Pro 13-inch (M4)",
     deviceType: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4",
-    resolution: { width: 2064, height: 2752 },
+    primaryResolution: { width: 2064, height: 2752 },
+    acceptedResolutions: [
+      { width: 2064, height: 2752 },
+      { width: 2048, height: 2732 },
+    ],
     appStoreClass: "13 inch",
-  },
-  "ipad_12.9": {
-    name: "iPad Pro (12.9-inch) (6th generation)",
-    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-12-9-inch-6th-generation",
-    resolution: { width: 2048, height: 2732 },
-    appStoreClass: "12.9 inch",
   },
 };
 
