@@ -10,6 +10,9 @@ An MCP (Model Context Protocol) server for automating App Store screenshot captu
 - **Status Bar Control**: Set clean status bar (9:41, full battery, WiFi) automatically
 - **App Management**: Install, launch, and navigate apps for screenshot automation
 - **UI Interaction**: Tap, swipe, scroll, and type to navigate apps to specific screens
+- **Video Recording**: Record simulator interactions for App Store preview videos
+- **Appearance Control**: Toggle dark/light mode, set locale, adjust text size
+- **Accessibility**: Inspect UI hierarchy, find elements, configure accessibility settings
 - **Validation**: Verify screenshots meet App Store requirements
 
 ## Installation
@@ -115,6 +118,34 @@ args = ["-y", "appstore-screenshot-mcp"]
 | `ui_press_button` | Press hardware buttons (home, lock, volume, shake, toggleAppearance) |
 | `get_ui_tree` | Get accessibility tree for finding element coordinates |
 
+### Video Recording
+
+| Tool | Description |
+|------|-------------|
+| `start_recording` | Start recording video from the simulator |
+| `stop_recording` | Stop recording and save the video file |
+| `get_recording_status` | Check if recording is in progress |
+
+### Appearance Control
+
+| Tool | Description |
+|------|-------------|
+| `set_appearance` | Set light or dark mode |
+| `get_appearance` | Get current appearance mode |
+| `toggle_appearance` | Toggle between light and dark mode |
+| `set_locale` | Set locale and language (e.g., en_US, ja_JP) |
+| `set_content_size` | Set Dynamic Type text size |
+| `set_accessibility` | Configure accessibility options (reduce motion, bold text, etc.) |
+
+### Accessibility Inspection
+
+| Tool | Description |
+|------|-------------|
+| `describe_ui` | Get the full UI accessibility hierarchy |
+| `describe_point` | Get element info at specific coordinates |
+| `find_element` | Search for elements by label, identifier, or type |
+| `get_screen_info` | Get screen dimensions and device info |
+
 ## App Store Screenshot Sizes (2024+)
 
 Apple simplified requirements - only two sizes are mandatory:
@@ -175,6 +206,35 @@ set_status_bar(
 6. Capture screenshot: capture_screenshot(outputPath: "./screenshots/settings-dark.png")
 ```
 
+### Record App Store Preview Video
+
+```
+1. Boot simulator: boot_appstore_simulator(deviceClass: "iphone_6.9")
+2. Launch app: launch_app(bundleId: "com.example.myapp")
+3. Start recording: start_recording(outputPath: "./videos/preview.mp4")
+4. Perform interactions: ui_tap, ui_scroll, etc.
+5. Stop recording: stop_recording()
+```
+
+### Capture Screenshots in Multiple Languages
+
+```
+1. Set locale: set_locale(locale: "ja_JP")
+2. Terminate app: terminate_app(bundleId: "com.example.myapp")
+3. Launch app: launch_app(bundleId: "com.example.myapp")
+4. Capture: capture_screenshot(outputPath: "./screenshots/home_ja.png")
+5. Repeat for other locales (fr_FR, de_DE, etc.)
+```
+
+### Light and Dark Mode Screenshots
+
+```
+1. set_appearance(mode: "light")
+2. capture_screenshot(outputPath: "./screenshots/home_light.png")
+3. set_appearance(mode: "dark")
+4. capture_screenshot(outputPath: "./screenshots/home_dark.png")
+```
+
 ## Resources
 
 The server exposes an MCP resource for device configurations:
@@ -210,6 +270,9 @@ The server wraps `xcrun simctl` commands and AppleScript to provide:
 3. **Screenshot Capture**: Uses `simctl io screenshot` with `--mask=black` for notch handling
 4. **App Control**: Uses `simctl install/launch/terminate` for app lifecycle
 5. **UI Interaction**: Uses AppleScript to control Simulator.app for taps, swipes, and keyboard input
+6. **Video Recording**: Uses `simctl io recordVideo` with H.264/HEVC codecs
+7. **Appearance Control**: Uses `simctl ui appearance` and `simctl spawn defaults` for settings
+8. **Accessibility**: Uses `simctl ui describe` for UI hierarchy inspection
 
 All commands are executed via Node.js child processes with proper error handling.
 
