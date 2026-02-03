@@ -62,7 +62,7 @@ function createServer(): McpServer {
       tool.name,
       tool.description,
       tool.schema.shape,
-      async (input) => {
+      async (input: Record<string, unknown>) => {
         // Parse and validate input
         const parsed = tool.schema.parse(input);
         // Call handler and return result

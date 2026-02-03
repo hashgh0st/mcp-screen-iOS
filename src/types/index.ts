@@ -141,6 +141,7 @@ export interface ImageContent {
 export type ToolContent = TextContent | ImageContent;
 
 export interface ToolResult {
+  [x: string]: unknown;
   content: ToolContent[];
   isError?: boolean;
 }

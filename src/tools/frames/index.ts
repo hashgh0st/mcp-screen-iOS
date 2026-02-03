@@ -196,7 +196,7 @@ export async function addFrame(
   }
 
   // Detect or use specified device
-  let deviceId = device;
+  let deviceId: string = device;
   if (device === "auto") {
     deviceId = detectDevice(dimensions.width, dimensions.height) || "iphone_16_pro_max";
   }
