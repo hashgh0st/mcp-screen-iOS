@@ -455,7 +455,7 @@ export async function setStatusBar(
   const { udid, ...options } = input;
   const target = udid || "booted";
 
-  applyStatusBar(target, options);
+  applyStatusBar(target, options as StatusBarOptions);
 
   return {
     content: [

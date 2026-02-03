@@ -16,6 +16,12 @@ import { uiTools } from "./tools/ui/index.js";
 import { videoTools } from "./tools/video/index.js";
 import { appearanceTools } from "./tools/appearance/index.js";
 import { accessibilityTools } from "./tools/accessibility/index.js";
+import { privacyTools } from "./tools/privacy/index.js";
+import { notificationTools } from "./tools/notifications/index.js";
+import { locationTools } from "./tools/location/index.js";
+import { alertTools } from "./tools/alerts/index.js";
+import { keychainTools } from "./tools/keychain/index.js";
+import { frameTools } from "./tools/frames/index.js";
 import { APP_STORE_DEVICES } from "./types/index.js";
 import { commandExists } from "./utils/exec.js";
 
@@ -43,6 +49,12 @@ function createServer(): McpServer {
     ...videoTools,
     ...appearanceTools,
     ...accessibilityTools,
+    ...privacyTools,
+    ...notificationTools,
+    ...locationTools,
+    ...alertTools,
+    ...keychainTools,
+    ...frameTools,
   ];
 
   for (const tool of allTools) {
@@ -50,7 +62,7 @@ function createServer(): McpServer {
       tool.name,
       tool.description,
       tool.schema.shape,
-      async (input) => {
+      async (input: Record<string, unknown>) => {
         // Parse and validate input
         const parsed = tool.schema.parse(input);
         // Call handler and return result

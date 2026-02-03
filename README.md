@@ -13,6 +13,12 @@ An MCP (Model Context Protocol) server for automating App Store screenshot captu
 - **Video Recording**: Record simulator interactions for App Store preview videos
 - **Appearance Control**: Toggle dark/light mode, set locale, adjust text size
 - **Accessibility**: Inspect UI hierarchy, find elements, configure accessibility settings
+- **Privacy Permissions**: Grant, revoke, or reset app permissions (camera, location, photos, etc.)
+- **Push Notifications**: Send simulated push notifications for UI testing
+- **Location Simulation**: Set GPS coordinates or use preset locations
+- **System Alerts**: Accept or dismiss permission dialogs automatically
+- **Keychain & Biometrics**: Manage keychain, trigger Face ID/Touch ID
+- **Device Frames**: Add device bezels for professional screenshots
 - **Validation**: Verify screenshots meet App Store requirements
 
 ## Installation
@@ -147,6 +153,62 @@ args = ["-y", "appstore-screenshot-mcp"]
 | `get_screen_info` | Get screen dimensions and device info |
 
 ## App Store Screenshot Sizes (2026)
+### Privacy Permissions
+
+| Tool | Description |
+|------|-------------|
+| `grant_permission` | Grant a permission (camera, photos, location, etc.) |
+| `revoke_permission` | Revoke a previously granted permission |
+| `reset_permission` | Reset permission to default (will prompt again) |
+| `grant_all_permissions` | Grant all common permissions at once |
+| `list_permissions` | List all available permission types |
+
+### Push Notifications
+
+| Tool | Description |
+|------|-------------|
+| `send_notification` | Send a push notification with title, body, badge |
+| `send_raw_notification` | Send a raw APNS JSON payload |
+| `send_silent_notification` | Send a silent/background notification |
+
+### Location Simulation
+
+| Tool | Description |
+|------|-------------|
+| `set_location` | Set GPS coordinates (latitude, longitude) |
+| `set_preset_location` | Set to a preset city (Tokyo, London, NYC, etc.) |
+| `clear_location` | Clear location override |
+| `simulate_route` | Simulate movement along a GPX route |
+| `list_preset_locations` | List available preset locations |
+
+### System Alerts
+
+| Tool | Description |
+|------|-------------|
+| `accept_alert` | Accept/tap Allow on system dialogs |
+| `dismiss_alert` | Dismiss/tap Don't Allow on dialogs |
+| `trigger_siri` | Activate Siri |
+| `send_memory_warning` | Send memory warning to apps |
+| `trigger_icloud_sync` | Trigger iCloud sync |
+
+### Keychain & Biometrics
+
+| Tool | Description |
+|------|-------------|
+| `reset_keychain` | Clear all stored credentials |
+| `add_keychain_item` | Add a credential to keychain |
+| `trigger_biometric` | Trigger Face ID/Touch ID match or failure |
+| `enroll_biometric` | Enroll or unenroll biometrics |
+
+### Device Frames
+
+| Tool | Description |
+|------|-------------|
+| `add_frame` | Add device bezel around screenshot |
+| `add_background` | Add solid background with padding |
+| `list_device_frames` | List available device frames |
+
+## App Store Screenshot Sizes (2024+)
 
 Apple's 2026 requirements focus on two primary display buckets, with multiple accepted pixel sizes per bucket:
 
@@ -235,6 +297,42 @@ set_status_bar(
 4. capture_screenshot(outputPath: "./screenshots/home_dark.png")
 ```
 
+### Grant Permissions Before Screenshots
+
+```
+1. grant_all_permissions(bundleId: "com.example.myapp")
+2. launch_app(bundleId: "com.example.myapp")
+3. -- App won't show permission dialogs, clean screenshots!
+4. capture_screenshot(outputPath: "./screenshots/camera_feature.png")
+```
+
+### Capture Notification UI
+
+```
+1. launch_app(bundleId: "com.example.myapp")
+2. send_notification(bundleId: "com.example.myapp", title: "New Message", body: "You have a new message!")
+3. -- Wait for notification banner
+4. capture_screenshot(outputPath: "./screenshots/notification.png")
+```
+
+### Location-Based Screenshots
+
+```
+1. set_preset_location(preset: "tokyo")
+2. launch_app(bundleId: "com.example.myapp")
+3. capture_screenshot(outputPath: "./screenshots/map_tokyo.png")
+4. set_preset_location(preset: "new_york")
+5. capture_screenshot(outputPath: "./screenshots/map_nyc.png")
+```
+
+### Add Device Frame to Screenshot
+
+```
+1. capture_screenshot(outputPath: "./screenshots/home.png")
+2. add_frame(inputPath: "./screenshots/home.png", shadow: true)
+3. -- Creates home_framed.png with device bezel
+```
+
 ## Resources
 
 The server exposes an MCP resource for device configurations:
@@ -273,6 +371,11 @@ The server wraps `xcrun simctl` commands and AppleScript to provide:
 6. **Video Recording**: Uses `simctl io recordVideo` with H.264/HEVC codecs
 7. **Appearance Control**: Uses `simctl ui appearance` and `simctl spawn defaults` for settings
 8. **Accessibility**: Uses `simctl ui describe` for UI hierarchy inspection
+9. **Privacy**: Uses `simctl privacy grant/revoke/reset` for permission management
+10. **Notifications**: Uses `simctl push` to send APNS payloads
+11. **Location**: Uses `simctl location set/clear` for GPS simulation
+12. **Biometrics**: Uses `notifyutil` to trigger Face ID/Touch ID events
+13. **Device Frames**: Uses ImageMagick (if available) or sips for image processing
 
 All commands are executed via Node.js child processes with proper error handling.
 
