@@ -53,15 +53,28 @@ export const captureScreenshotInlineSchema = z.object({
     .describe("Apply black mask over notch/Dynamic Island area"),
 });
 
+/**
+ * Scene definition for multi-step captures
+ */
+const sceneSchema = z.object({
+  name: z
+    .string()
+    .describe("Scene identifier used in filename (e.g., 'home', 'settings')"),
+  deepLink: z
+    .string()
+    .optional()
+    .describe("URL/deep link to open before capture (e.g., myapp://settings)"),
+  waitMs: z
+    .number()
+    .optional()
+    .default(1000)
+    .describe("Wait time in ms after navigation before capture"),
+});
+
 export const captureAllAppStoreSchema = z.object({
   outputDir: z
     .string()
     .describe("Output directory for screenshots"),
-  filenamePrefix: z
-    .string()
-    .optional()
-    .default("screenshot")
-    .describe("Prefix for screenshot filenames"),
   cleanStatusBar: z
     .boolean()
     .optional()
@@ -71,7 +84,25 @@ export const captureAllAppStoreSchema = z.object({
     .array(z.enum(["iphone_6.9", "ipad_13"]))
     .optional()
     .default(["iphone_6.9", "ipad_13"])
-    .describe("Device classes to capture (defaults to iPhone 6.9\" and iPad 13\")"),
+    .describe("Device classes to capture"),
+  appearance: z
+    .enum(["light", "dark", "both"])
+    .optional()
+    .default("light")
+    .describe("Appearance mode(s) to capture"),
+  languageTags: z
+    .array(z.string())
+    .optional()
+    .default(["en-US"])
+    .describe("Language/locale tags to capture (e.g., ['en-US', 'ja-JP', 'fr-FR'])"),
+  scenes: z
+    .array(sceneSchema)
+    .optional()
+    .describe("Scenes to capture. If omitted, captures single screenshot of current screen."),
+  bundleId: z
+    .string()
+    .optional()
+    .describe("App bundle ID - required when using languageTags or scenes (for app restart/launch)"),
 });
 
 export const setStatusBarSchema = z.object({
@@ -220,6 +251,13 @@ function matchesResolution(
 }
 
 /**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Apply status bar overrides
  */
 function applyStatusBar(udid: string, options: StatusBarOptions): void {
@@ -344,15 +382,32 @@ export async function captureScreenshotInline(
 
 /**
  * Capture screenshots for all App Store required sizes
+ * Supports multi-locale, light/dark mode, and multi-scene orchestration
  */
 export async function captureAllAppStore(
   input: z.infer<typeof captureAllAppStoreSchema>
 ): Promise<ToolResult> {
-  const { outputDir, filenamePrefix, cleanStatusBar, deviceClasses } = input;
+  const {
+    outputDir,
+    cleanStatusBar,
+    deviceClasses,
+    appearance,
+    languageTags,
+    scenes,
+    bundleId,
+  } = input;
 
-  // Ensure output directory exists
-  if (!existsSync(outputDir)) {
-    mkdirSync(outputDir, { recursive: true });
+  // Validate: bundleId required for multi-locale or scenes
+  if ((languageTags.length > 1 || scenes) && !bundleId) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "bundleId is required when using multiple languageTags or scenes (needed for app restart)",
+        },
+      ],
+      isError: true,
+    };
   }
 
   // Get currently booted simulators
@@ -367,66 +422,144 @@ export async function captureAllAppStore(
     }
   }
 
+  // Determine appearance modes to capture
+  const appearanceModes: Array<"light" | "dark"> =
+    appearance === "both" ? ["light", "dark"] : [appearance];
+
+  // Default scenes if not specified
+  const captureScenes = scenes || [{ name: "screenshot", waitMs: 500 }];
+
   const results: Array<{
+    languageTag: string;
+    appearance: string;
     deviceClass: string;
+    scene: string;
     status: "success" | "skipped" | "error";
     path?: string;
     error?: string;
   }> = [];
 
-  for (const deviceClass of deviceClasses) {
-    const config = APP_STORE_DEVICES[deviceClass];
-    if (!config) {
-      results.push({
-        deviceClass,
-        status: "error",
-        error: `Unknown device class: ${deviceClass}`,
-      });
-      continue;
-    }
+  // Main orchestration loop: language -> appearance -> device -> scene
+  for (const languageTag of languageTags) {
+    // Convert language tag format (en-US -> en_US for locale, en for language)
+    const locale = languageTag.replace("-", "_");
+    const language = languageTag.split("-")[0];
 
-    const udid = bootedDevices.get(config.deviceType);
-    if (!udid) {
-      results.push({
-        deviceClass,
-        status: "skipped",
-        error: `No booted simulator found for ${config.name}. Boot one with boot_appstore_simulator first.`,
-      });
-      continue;
-    }
+    for (const mode of appearanceModes) {
+      for (const deviceClass of deviceClasses) {
+        const config = APP_STORE_DEVICES[deviceClass];
+        if (!config) {
+          results.push({
+            languageTag,
+            appearance: mode,
+            deviceClass,
+            scene: "*",
+            status: "error",
+            error: `Unknown device class: ${deviceClass}`,
+          });
+          continue;
+        }
 
-    try {
-      const outputPath = resolve(outputDir, `${filenamePrefix}_${deviceClass}.png`);
+        const udid = bootedDevices.get(config.deviceType);
+        if (!udid) {
+          results.push({
+            languageTag,
+            appearance: mode,
+            deviceClass,
+            scene: "*",
+            status: "skipped",
+            error: `No booted simulator found for ${config.name}`,
+          });
+          continue;
+        }
 
-      // Apply clean status bar
-      if (cleanStatusBar) {
-        applyStatusBar(udid, {
-          time: "9:41",
-          batteryState: "charged",
-          batteryLevel: 100,
-          wifiMode: "active",
-          wifiBars: 3,
-          cellularMode: "active",
-          cellularBars: 4,
-        });
+        try {
+          // Set locale (requires app restart to take effect)
+          simctl(`spawn ${udid} defaults write -globalDomain AppleLocale -string "${locale}"`);
+          simctl(`spawn ${udid} defaults write -globalDomain AppleLanguages -array "${language}"`);
+
+          // Set appearance mode
+          simctl(`ui ${udid} appearance ${mode}`);
+
+          // Restart app to apply locale changes
+          if (bundleId) {
+            try {
+              simctl(`terminate ${udid} ${bundleId}`);
+            } catch {
+              // App may not be running, ignore
+            }
+            await sleep(500);
+            simctl(`launch ${udid} ${bundleId}`);
+            await sleep(1000); // Wait for app to launch
+          }
+
+          // Apply clean status bar
+          if (cleanStatusBar) {
+            applyStatusBar(udid, {
+              time: "9:41",
+              batteryState: "charged",
+              batteryLevel: 100,
+              wifiMode: "active",
+              wifiBars: 3,
+              cellularMode: "active",
+              cellularBars: 4,
+            });
+          }
+
+          // Capture each scene
+          for (let i = 0; i < captureScenes.length; i++) {
+            const scene = captureScenes[i];
+
+            // Navigate via deep link if specified
+            if (scene.deepLink) {
+              simctl(`openurl ${udid} "${scene.deepLink}"`);
+            }
+
+            // Wait for UI to settle
+            await sleep(scene.waitMs || 1000);
+
+            // Create output path: outputDir/languageTag/deviceClass/NN-sceneName.png
+            const deviceDir = deviceClass.replace("_", "-");
+            const sceneDir = resolve(outputDir, languageTag, deviceDir);
+            if (!existsSync(sceneDir)) {
+              mkdirSync(sceneDir, { recursive: true });
+            }
+
+            // Include appearance in filename if capturing both modes
+            const appearanceSuffix = appearance === "both" ? `-${mode}` : "";
+            const filename = `${String(i + 1).padStart(2, "0")}-${scene.name}${appearanceSuffix}.png`;
+            const outputPath = resolve(sceneDir, filename);
+
+            // Capture screenshot
+            simctl(`io ${udid} screenshot --type=png --mask=black "${outputPath}"`);
+
+            results.push({
+              languageTag,
+              appearance: mode,
+              deviceClass,
+              scene: scene.name,
+              status: "success",
+              path: outputPath,
+            });
+          }
+        } catch (error) {
+          results.push({
+            languageTag,
+            appearance: mode,
+            deviceClass,
+            scene: "*",
+            status: "error",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
-
-      // Capture
-      simctl(`io ${udid} screenshot --type=png --mask=black "${outputPath}"`);
-
-      results.push({
-        deviceClass,
-        status: "success",
-        path: outputPath,
-      });
-    } catch (error) {
-      results.push({
-        deviceClass,
-        status: "error",
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
   }
+
+  // Summary stats
+  const successCount = results.filter((r) => r.status === "success").length;
+  const errorCount = results.filter((r) => r.status === "error").length;
+  const skippedCount = results.filter((r) => r.status === "skipped").length;
 
   return {
     content: [
@@ -436,6 +569,18 @@ export async function captureAllAppStore(
           {
             message: "App Store screenshot capture complete",
             outputDir: resolve(outputDir),
+            summary: {
+              total: results.length,
+              success: successCount,
+              errors: errorCount,
+              skipped: skippedCount,
+            },
+            configuration: {
+              languageTags,
+              appearanceModes,
+              deviceClasses,
+              scenes: captureScenes.map((s) => s.name),
+            },
             results,
           },
           null,
@@ -629,7 +774,8 @@ export const screenshotTools = [
     name: "capture_all_appstore",
     title: "Capture All App Store Screenshots",
     description:
-      "Capture screenshots for all App Store required sizes from currently booted simulators. Requires simulators to be already booted for each device class.",
+      "Full orchestration tool for App Store screenshot sets. Captures across multiple languages, light/dark modes, device classes, and scenes. " +
+      "Output: {outputDir}/{languageTag}/{device-class}/NN-scene.png. Requires simulators to be booted for each device class.",
     schema: captureAllAppStoreSchema,
     handler: captureAllAppStore,
   },

@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { simctl, execCommand } from "../../utils/exec.js";
+import { simctl } from "../../utils/exec.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -299,18 +299,6 @@ export async function getScreenInfo(
         ],
         isError: true,
       };
-    }
-
-    // Get device type info for screen dimensions
-    const deviceTypesOutput = simctl("list devicetypes --json");
-    const deviceTypes = JSON.parse(deviceTypesOutput);
-
-    let screenInfo: { name: string; identifier: string } | null = null;
-    for (const dt of deviceTypes.devicetypes as Array<{ name: string; identifier: string }>) {
-      if (dt.identifier === deviceInfo.deviceTypeIdentifier) {
-        screenInfo = dt;
-        break;
-      }
     }
 
     // Known screen dimensions for common devices

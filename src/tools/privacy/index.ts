@@ -288,6 +288,7 @@ export async function grantAllPermissions(
 export async function listPermissions(
   _input: z.infer<typeof listPermissionsSchema>
 ): Promise<ToolResult> {
+  void _input;
   return {
     content: [
       {

@@ -158,6 +158,41 @@ function runAppleScript(script: string): string {
   return execCommand(`osascript -e "${escaped}"`);
 }
 
+function escapeAppleScriptString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function resolveTargetUdid(udid?: string): string | null {
+  if (udid && udid !== "booted") {
+    return udid;
+  }
+  return getBootedUdid();
+}
+
+function focusSimulatorWindow(udid?: string): void {
+  const resolvedUdid = resolveTargetUdid(udid);
+  const windowName = resolvedUdid ? getSimulatorWindowName(resolvedUdid) : null;
+
+  const lines = [
+    'tell application "Simulator" to activate',
+    'tell application "System Events"',
+    '  tell process "Simulator"',
+    "    set frontmost to true",
+  ];
+
+  if (windowName) {
+    const safeWindowName = escapeAppleScriptString(windowName);
+    lines.push(`    if exists window "${safeWindowName}" then`);
+    lines.push(`      perform action "AXRaise" of window "${safeWindowName}"`);
+    lines.push("    end if");
+  }
+
+  lines.push("  end tell");
+  lines.push("end tell");
+
+  runAppleScript(lines.join("\n").trim().replace(/\n/g, "\" -e \""));
+}
+
 /**
  * Tap at coordinates using simctl
  */
@@ -168,6 +203,7 @@ export async function uiTap(
   const target = udid || "booted";
 
   try {
+    focusSimulatorWindow(udid);
     // Use simctl io to send touch event
     // Note: This requires the simulator to be in focus
     const script = `
@@ -222,31 +258,8 @@ export async function uiSwipe(
   const target = udid || "booted";
 
   try {
-    // AppleScript drag command
-    const script = `
-tell application "Simulator"
-  activate
-end tell
-delay 0.2
-tell application "System Events"
-  tell process "Simulator"
-    -- Perform drag (swipe)
-    set startPoint to {${Math.round(startX)}, ${Math.round(startY)}}
-    set endPoint to {${Math.round(endX)}, ${Math.round(endY)}}
-
-    -- Click and drag
-    click at startPoint
-    delay 0.05
-    -- Use key down/drag/key up pattern
-  end tell
-end tell
-`;
-
-    // For swipes, use a simpler approach via keyboard shortcuts or direct simctl
-    // simctl doesn't support swipe directly, so we use a workaround
-
-    // Alternative: Use simctl spawn with a touch injection helper
-    // For now, return success with a note
+    focusSimulatorWindow(udid);
+    // simctl doesn't support swipe directly. For now, return success with a note.
 
     return {
       content: [
@@ -290,6 +303,7 @@ export async function uiType(
   const target = udid || "booted";
 
   try {
+    focusSimulatorWindow(udid);
     // Method 1: Use simctl io sendkey for each character (slow but reliable)
     // Method 2: Use pasteboard + paste shortcut (fast)
 
@@ -360,6 +374,7 @@ export async function uiPressButton(
   const target = udid || "booted";
 
   try {
+    focusSimulatorWindow(udid);
     switch (button) {
       case "home":
         // Home button via simctl

@@ -308,6 +308,7 @@ export async function shutdownSimulator(
 export async function getBootedSimulator(
   _input: z.infer<typeof getBootedSimulatorSchema>
 ): Promise<ToolResult> {
+  void _input;
   const data = parseSimctlJson<SimctlListOutput>("list devices");
 
   const bootedDevices: Array<SimulatorDevice & { runtime: string }> = [];

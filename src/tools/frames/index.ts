@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
 import { dirname, resolve, basename, extname, join } from "path";
 import { execCommand, commandExists } from "../../utils/exec.js";
 import { ToolResult } from "../../types/index.js";
@@ -325,7 +325,7 @@ export async function addFrame(
 export async function addBackground(
   input: z.infer<typeof addBackgroundSchema>
 ): Promise<ToolResult> {
-  const { inputPath, outputPath, backgroundColor, padding, cornerRadius } = input;
+  const { inputPath, outputPath, backgroundColor, padding } = input;
   const fullInputPath = resolve(inputPath);
 
   if (!existsSync(fullInputPath)) {
@@ -395,6 +395,7 @@ export async function addBackground(
 export async function listDeviceFrames(
   _input: z.infer<typeof listDeviceFramesSchema>
 ): Promise<ToolResult> {
+  void _input;
   const frames = Object.entries(DEVICE_FRAMES).map(([id, config]) => ({
     id,
     name: config.name,

@@ -353,3 +353,69 @@ describe("Notification Tools", () => {
     });
   });
 });
+
+describe("UI Tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("focuses the simulator window for uiTap with a specific udid", async () => {
+    const { uiTap } = await import("../src/tools/ui/index.js");
+
+    vi.mocked(simctl).mockReturnValue(
+      JSON.stringify({
+        devices: {
+          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+            { udid: "ABC123", name: "iPhone 16 Pro Max", state: "Booted" },
+          ],
+        },
+      })
+    );
+    vi.mocked(execCommand).mockReturnValue("");
+
+    await uiTap({ udid: "ABC123", x: 10, y: 20 });
+
+    const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
+    expect(execCalls.some((call) => call.includes("iPhone 16 Pro Max"))).toBe(true);
+  });
+
+  it("focuses the booted simulator when udid is omitted in uiType", async () => {
+    const { uiType } = await import("../src/tools/ui/index.js");
+
+    vi.mocked(simctl).mockReturnValue(
+      JSON.stringify({
+        devices: {
+          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+            { udid: "BOOTED123", name: "iPhone 16 Pro", state: "Booted" },
+          ],
+        },
+      })
+    );
+    vi.mocked(execCommand).mockReturnValue("");
+
+    await uiType({ text: "hello world" });
+
+    const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
+    expect(execCalls.some((call) => call.includes("iPhone 16 Pro"))).toBe(true);
+  });
+
+  it("focuses the simulator window before pressing a button", async () => {
+    const { uiPressButton } = await import("../src/tools/ui/index.js");
+
+    vi.mocked(simctl).mockReturnValue(
+      JSON.stringify({
+        devices: {
+          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+            { udid: "DEVICE123", name: "iPhone 15 Pro Max", state: "Booted" },
+          ],
+        },
+      })
+    );
+    vi.mocked(execCommand).mockReturnValue("");
+
+    await uiPressButton({ udid: "DEVICE123", button: "lock" });
+
+    const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
+    expect(execCalls.some((call) => call.includes("iPhone 15 Pro Max"))).toBe(true);
+  });
+});

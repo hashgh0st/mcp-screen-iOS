@@ -79,8 +79,8 @@ export interface AppStoreDeviceConfig {
  */
 export const APP_STORE_DEVICES: Record<string, AppStoreDeviceConfig> = {
   "iphone_6.9": {
-    name: "iPhone 16 Pro Max",
-    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
+    name: "iPhone 17 Pro Max",
+    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max",
     primaryResolution: { width: 1320, height: 2868 },
     acceptedResolutions: [
       { width: 1320, height: 2868 },
@@ -90,8 +90,8 @@ export const APP_STORE_DEVICES: Record<string, AppStoreDeviceConfig> = {
     appStoreClass: "6.9 inch",
   },
   "ipad_13": {
-    name: "iPad Pro 13-inch (M4)",
-    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4",
+    name: "iPad Pro 13-inch (M5)",
+    deviceType: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB",
     primaryResolution: { width: 2064, height: 2752 },
     acceptedResolutions: [
       { width: 2064, height: 2752 },

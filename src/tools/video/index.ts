@@ -159,7 +159,7 @@ export async function startRecording(
   });
 
   // Handle process exit (recording stopped externally or error)
-  recordProcess.on("exit", (code) => {
+  recordProcess.on("exit", () => {
     activeRecordings.delete(resolvedUdid);
   });
 

@@ -28,3 +28,14 @@ coverage/
 # Temporary files
 *.tmp
 /tmp/
+
+# Claude Code configuration (skills, agents, settings)
+.claude/
+
+# Markdown files (except README and examples)
+*.md
+!README.md
+!examples/*.md
+
+# ESLint config (optional, dev-only)
+.eslintrc.cjs

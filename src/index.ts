@@ -7,7 +7,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
+import { execSync } from "child_process";
 
 import { simulatorTools } from "./tools/simulator/index.js";
 import { screenshotTools } from "./tools/screenshot/index.js";
@@ -105,7 +105,6 @@ function verifyRequirements(): void {
 
   // Check for simctl
   try {
-    const { execSync } = require("child_process");
     execSync("xcrun simctl help", { stdio: "ignore" });
   } catch {
     console.error(

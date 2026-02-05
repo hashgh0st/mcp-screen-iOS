@@ -272,6 +272,7 @@ export async function simulateRoute(
 export async function listPresetLocations(
   _input: z.infer<typeof listPresetLocationsSchema>
 ): Promise<ToolResult> {
+  void _input;
   const presets = Object.entries(PRESET_LOCATIONS).map(([key, loc]) => ({
     preset: key,
     name: loc.name,
