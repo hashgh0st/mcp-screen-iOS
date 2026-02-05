@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -61,15 +62,27 @@ export async function resetKeychain(
   input: z.infer<typeof resetKeychainSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Reset keychain by using simctl spawn to run security command
-    simctl(`spawn ${target} launchctl remove com.apple.securityd 2>/dev/null || true`);
-    simctl(`spawn ${target} launchctl start com.apple.securityd 2>/dev/null || true`);
+    try {
+      simctl(`spawn ${target} launchctl remove com.apple.securityd`);
+    } catch {
+      // May fail if service doesn't exist, ignore
+    }
+    try {
+      simctl(`spawn ${target} launchctl start com.apple.securityd`);
+    } catch {
+      // May fail, ignore
+    }
 
     // Alternative: trigger a keychain reset via defaults
-    simctl(`spawn ${target} defaults delete com.apple.security 2>/dev/null || true`);
+    try {
+      simctl(`spawn ${target} defaults delete com.apple.security`);
+    } catch {
+      // May fail if key doesn't exist, ignore
+    }
 
     return {
       content: [
@@ -107,14 +120,18 @@ export async function addKeychainItem(
   input: z.infer<typeof addKeychainItemSchema>
 ): Promise<ToolResult> {
   const { udid, service, account, password } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use simctl spawn to add keychain item via security command
     // Note: This is a simplified approach - actual keychain access requires app-specific entitlements
-    simctl(
-      `spawn ${target} security add-generic-password -s "${service}" -a "${account}" -w "${password}" -A 2>/dev/null || true`
-    );
+    try {
+      simctl(
+        `spawn ${target} security add-generic-password -s ${shellEscape(service)} -a ${shellEscape(account)} -w ${shellEscape(password)} -A`
+      );
+    } catch {
+      // May fail if item already exists, ignore
+    }
 
     return {
       content: [
@@ -154,7 +171,7 @@ export async function triggerBiometric(
   input: z.infer<typeof triggerBiometricSchema>
 ): Promise<ToolResult> {
   const { udid, result } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use notifyutil to trigger biometric result
@@ -203,18 +220,26 @@ export async function enrollBiometric(
   input: z.infer<typeof enrollBiometricSchema>
 ): Promise<ToolResult> {
   const { udid, enrolled } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use simctl to set biometric enrollment
     if (enrolled) {
       simctl(`spawn ${target} notifyutil -p com.apple.BiometricKit_Sim.enrollmentChanged`);
       // Set enrollment flag via defaults
-      simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim FaceIDEnrolled -bool true 2>/dev/null || true`);
-      simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim TouchIDEnrolled -bool true 2>/dev/null || true`);
+      try {
+        simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim FaceIDEnrolled -bool true`);
+      } catch { /* ignore */ }
+      try {
+        simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim TouchIDEnrolled -bool true`);
+      } catch { /* ignore */ }
     } else {
-      simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim FaceIDEnrolled -bool false 2>/dev/null || true`);
-      simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim TouchIDEnrolled -bool false 2>/dev/null || true`);
+      try {
+        simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim FaceIDEnrolled -bool false`);
+      } catch { /* ignore */ }
+      try {
+        simctl(`spawn ${target} defaults write com.apple.BiometricKit_Sim TouchIDEnrolled -bool false`);
+      } catch { /* ignore */ }
     }
 
     return {

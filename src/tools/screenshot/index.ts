@@ -4,8 +4,10 @@
 
 import { z } from "zod";
 import { readFileSync, unlinkSync, existsSync, mkdirSync } from "fs";
+import { randomUUID } from "crypto";
 import { dirname, resolve } from "path";
 import { simctl, parseSimctlJson } from "../../utils/exec.js";
+import { shellEscape, validatePath, resolveTarget } from "../../utils/validation.js";
 import {
   SimctlListOutput,
   APP_STORE_DEVICES,
@@ -302,14 +304,14 @@ function parseLocaleAndLanguage(tag: string): { locale: string; language: string
 function applyStatusBar(udid: string, options: StatusBarOptions): void {
   const args: string[] = [];
 
-  if (options.time) args.push(`--time "${options.time}"`);
+  if (options.time) args.push(`--time ${shellEscape(options.time)}`);
   if (options.batteryState) args.push(`--batteryState ${options.batteryState}`);
   if (options.batteryLevel !== undefined) args.push(`--batteryLevel ${options.batteryLevel}`);
   if (options.wifiMode) args.push(`--wifiMode ${options.wifiMode}`);
   if (options.wifiBars !== undefined) args.push(`--wifiBars ${options.wifiBars}`);
   if (options.cellularMode) args.push(`--cellularMode ${options.cellularMode}`);
   if (options.cellularBars !== undefined) args.push(`--cellularBars ${options.cellularBars}`);
-  if (options.operatorName) args.push(`--operatorName "${options.operatorName}"`);
+  if (options.operatorName) args.push(`--operatorName ${shellEscape(options.operatorName)}`);
 
   simctl(`status_bar ${udid} override ${args.join(" ")}`);
 }
@@ -321,7 +323,7 @@ export async function captureScreenshot(
   input: z.infer<typeof captureScreenshotSchema>
 ): Promise<ToolResult> {
   const { udid, outputPath, cleanStatusBar, maskNotch } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   // Ensure output directory exists
   const outputDir = dirname(outputPath);
@@ -344,8 +346,8 @@ export async function captureScreenshot(
 
   // Capture screenshot
   const maskOption = maskNotch ? "--mask=black" : "--mask=ignored";
-  const fullPath = resolve(outputPath);
-  simctl(`io ${target} screenshot --type=png ${maskOption} "${fullPath}"`);
+  const fullPath = validatePath(outputPath);
+  simctl(`io ${target} screenshot --type=png ${maskOption} ${shellEscape(fullPath)}`);
 
   return {
     content: [
@@ -373,8 +375,8 @@ export async function captureScreenshotInline(
   input: z.infer<typeof captureScreenshotInlineSchema>
 ): Promise<ToolResult> {
   const { udid, cleanStatusBar, maskNotch } = input;
-  const target = udid || "booted";
-  const tempPath = `/tmp/mcp-screenshot-${Date.now()}.png`;
+  const target = resolveTarget(udid);
+  const tempPath = `/tmp/mcp-screenshot-${randomUUID()}.png`;
 
   try {
     // Apply clean status bar if requested
@@ -392,7 +394,7 @@ export async function captureScreenshotInline(
 
     // Capture screenshot
     const maskOption = maskNotch ? "--mask=black" : "--mask=ignored";
-    simctl(`io ${target} screenshot --type=png ${maskOption} "${tempPath}"`);
+    simctl(`io ${target} screenshot --type=png ${maskOption} ${shellEscape(tempPath)}`);
 
     // Read and encode
     const imageBuffer = readFileSync(tempPath);
@@ -510,7 +512,13 @@ export async function captureAllAppStore(
           continue;
         }
 
-        const udid = bootedDevices.get(config.deviceType);
+        let udid = bootedDevices.get(config.deviceType);
+        if (!udid && config.alternateDeviceTypes) {
+          for (const altType of config.alternateDeviceTypes) {
+            udid = bootedDevices.get(altType);
+            if (udid) break;
+          }
+        }
         if (!udid) {
           results.push({
             languageTag,
@@ -526,8 +534,8 @@ export async function captureAllAppStore(
         try {
           // Apply locale (requires app restart to take effect)
           if (applyLocale && localeInfo) {
-            simctl(`spawn ${udid} defaults write -globalDomain AppleLocale -string "${localeInfo.locale}"`);
-            simctl(`spawn ${udid} defaults write -globalDomain AppleLanguages -array "${localeInfo.language}"`);
+            simctl(`spawn ${udid} defaults write -globalDomain AppleLocale -string ${shellEscape(localeInfo.locale)}`);
+            simctl(`spawn ${udid} defaults write -globalDomain AppleLanguages -array ${shellEscape(localeInfo.language)}`);
           }
 
           // Set appearance mode
@@ -536,12 +544,12 @@ export async function captureAllAppStore(
           // Restart app to apply locale changes (only needed when we changed locale)
           if (applyLocale && bundleId) {
             try {
-              simctl(`terminate ${udid} ${bundleId}`);
+              simctl(`terminate ${udid} ${shellEscape(bundleId)}`);
             } catch {
               // App may not be running, ignore
             }
             await sleep(1500); // Wait for app to fully terminate
-            simctl(`launch ${udid} ${bundleId}`);
+            simctl(`launch ${udid} ${shellEscape(bundleId)}`);
             await sleep(2000); // Wait for app to fully launch
           }
 
@@ -564,7 +572,7 @@ export async function captureAllAppStore(
 
             // Navigate via deep link if specified
             if (scene.deepLink) {
-              simctl(`openurl ${udid} "${scene.deepLink}"`);
+              simctl(`openurl ${udid} ${shellEscape(scene.deepLink)}`);
             }
 
             // Wait for UI to settle
@@ -583,7 +591,7 @@ export async function captureAllAppStore(
             const outputPath = resolve(sceneDir, filename);
 
             // Capture screenshot
-            simctl(`io ${udid} screenshot --type=png --mask=black "${outputPath}"`);
+            simctl(`io ${udid} screenshot --type=png --mask=black ${shellEscape(outputPath)}`);
 
             results.push({
               languageTag,
@@ -650,7 +658,7 @@ export async function setStatusBar(
   input: z.infer<typeof setStatusBarSchema>
 ): Promise<ToolResult> {
   const { udid, ...options } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   applyStatusBar(target, options as StatusBarOptions);
 
@@ -678,7 +686,7 @@ export async function clearStatusBar(
   input: z.infer<typeof clearStatusBarSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   simctl(`status_bar ${target} clear`);
 

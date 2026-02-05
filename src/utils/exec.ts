@@ -46,6 +46,9 @@ export async function execCommandAsync(
  * Check if a command exists
  */
 export function commandExists(command: string): boolean {
+  if (!/^[a-zA-Z0-9_-]+$/.test(command)) {
+    return false;
+  }
   try {
     execSync(`which ${command}`, { encoding: "utf-8" });
     return true;

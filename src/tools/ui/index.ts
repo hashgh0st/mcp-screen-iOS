@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl, execCommand } from "../../utils/exec.js";
+import { shellEscape, escapeForAppleScript, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -150,17 +151,18 @@ function getBootedUdid(): string | null {
 }
 
 /**
- * Execute AppleScript for Simulator interaction
+ * Execute AppleScript for Simulator interaction.
+ * Accepts a multi-line script and splits it into separate -e arguments,
+ * using shellEscape on each line to avoid shell metacharacter issues.
  */
 function runAppleScript(script: string): string {
-  // Escape the script for shell
-  const escaped = script.replace(/"/g, '\\"');
-  return execCommand(`osascript -e "${escaped}"`);
+  const lines = script.trim().split("\n");
+  const args = lines.map((line) => `-e ${shellEscape(line)}`).join(" ");
+  return execCommand(`osascript ${args}`);
 }
 
-function escapeAppleScriptString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
+// Use escapeForAppleScript from validation utilities
+const escapeAppleScriptString = escapeForAppleScript;
 
 function resolveTargetUdid(udid?: string): string | null {
   if (udid && udid !== "booted") {
@@ -190,7 +192,7 @@ function focusSimulatorWindow(udid?: string): void {
   lines.push("  end tell");
   lines.push("end tell");
 
-  runAppleScript(lines.join("\n").trim().replace(/\n/g, "\" -e \""));
+  runAppleScript(lines.join("\n"));
 }
 
 /**
@@ -200,7 +202,7 @@ export async function uiTap(
   input: z.infer<typeof uiTapSchema>
 ): Promise<ToolResult> {
   const { udid, x, y } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Best-effort focus (simctl doesn't require it, but it helps when mixing tools).
@@ -282,7 +284,7 @@ export async function uiSwipe(
   input: z.infer<typeof uiSwipeSchema>
 ): Promise<ToolResult> {
   const { udid, startX, startY, endX, endY, duration } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Best-effort focus (simctl doesn't require it, but it helps when mixing tools).
@@ -375,7 +377,7 @@ export async function uiType(
   input: z.infer<typeof uiTypeSchema>
 ): Promise<ToolResult> {
   const { udid, text } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     focusSimulatorWindow(udid);
@@ -384,9 +386,8 @@ export async function uiType(
 
     // Use pasteboard approach for longer text
     if (text.length > 10) {
-      // Set pasteboard content using single quotes for safety, escape embedded single quotes
-      const safeText = text.replace(/'/g, "'\\''");
-      execCommand(`printf '%s' '${safeText}' | pbcopy`);
+      // Set pasteboard content using shellEscape for safety
+      execCommand(`printf '%s' ${shellEscape(text)} | pbcopy`);
 
       // Paste using Cmd+V via AppleScript
       const script = `
@@ -396,10 +397,10 @@ tell application "System Events"
   keystroke "v" using command down
 end tell
 `;
-      runAppleScript(script.trim().replace(/\n/g, "\" -e \""));
+      runAppleScript(script);
     } else {
-      // For short text, use keystroke - escape backslashes first, then quotes
-      const escapedText = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      // For short text, use keystroke with proper AppleScript escaping
+      const escapedText = escapeForAppleScript(text);
       const script = `
 tell application "Simulator" to activate
 delay 0.1
@@ -407,7 +408,7 @@ tell application "System Events"
   keystroke "${escapedText}"
 end tell
 `;
-      runAppleScript(script.trim().replace(/\n/g, "\" -e \""));
+      runAppleScript(script);
     }
 
     return {
@@ -448,7 +449,7 @@ export async function uiPressButton(
   input: z.infer<typeof uiPressButtonSchema>
 ): Promise<ToolResult> {
   const { udid, button } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     focusSimulatorWindow(udid);
@@ -462,7 +463,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   keystroke "h" using {command down, shift down}
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "lock":
@@ -472,7 +473,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   keystroke "l" using command down
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "volumeUp":
@@ -482,7 +483,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   key code 126 using command down
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "volumeDown":
@@ -492,7 +493,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   key code 125 using command down
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "shake":
@@ -502,7 +503,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   keystroke "z" using {command down, control down}
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "screenshot":
@@ -512,7 +513,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   keystroke "s" using command down
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       case "toggleAppearance":
@@ -522,7 +523,7 @@ tell application "Simulator" to activate
 tell application "System Events"
   keystroke "a" using {command down, shift down}
 end tell
-`.trim().replace(/\n/g, "\" -e \""));
+`);
         break;
 
       default:
@@ -567,7 +568,7 @@ export async function getUiTree(
   input: z.infer<typeof getUiTreeSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Try simctl ui describe (available in newer Xcode versions)
@@ -584,8 +585,8 @@ export async function getUiTree(
   } catch (error) {
     // Fall back to accessibility inspector approach
     try {
-      // Try using accessibility API via spawn
-      const altOutput = simctl(`spawn ${target} accessibility_inspector 2>/dev/null || echo "UI tree inspection requires Xcode Accessibility Inspector"`);
+      // Try using accessibility API via spawn (no shell operators)
+      const altOutput = simctl(`spawn ${target} accessibility_inspector`);
 
       return {
         content: [
@@ -616,7 +617,7 @@ export async function uiScroll(
   input: z.infer<typeof uiScrollSchema>
 ): Promise<ToolResult> {
   const { udid, direction, distance, x, y } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   // Calculate swipe coordinates based on direction
   // Default to center of typical iPhone screen

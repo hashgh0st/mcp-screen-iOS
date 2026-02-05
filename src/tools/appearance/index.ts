@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl, execCommand } from "../../utils/exec.js";
+import { shellEscape, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -114,7 +115,7 @@ export async function setAppearance(
   input: z.infer<typeof setAppearanceSchema>
 ): Promise<ToolResult> {
   const { udid, mode } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use simctl ui appearance command
@@ -183,7 +184,7 @@ export async function getAppearance(
   input: z.infer<typeof getAppearanceSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     const output = simctl(`ui ${target} appearance`);
@@ -223,7 +224,7 @@ export async function toggleAppearance(
   input: z.infer<typeof toggleAppearanceSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Get current appearance
@@ -297,7 +298,7 @@ export async function setLocale(
   input: z.infer<typeof setLocaleSchema>
 ): Promise<ToolResult> {
   const { udid, locale, language } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   // Derive language from locale if not provided
   const lang = language || locale.split("_")[0];
@@ -305,8 +306,8 @@ export async function setLocale(
   try {
     // Use simctl spawn to set locale via defaults command
     // This writes to the simulator's preferences
-    simctl(`spawn ${target} defaults write -globalDomain AppleLocale -string "${locale}"`);
-    simctl(`spawn ${target} defaults write -globalDomain AppleLanguages -array "${lang}"`);
+    simctl(`spawn ${target} defaults write -globalDomain AppleLocale -string ${shellEscape(locale)}`);
+    simctl(`spawn ${target} defaults write -globalDomain AppleLanguages -array ${shellEscape(lang)}`);
 
     return {
       content: [
@@ -346,7 +347,7 @@ export async function setContentSize(
   input: z.infer<typeof setContentSizeSchema>
 ): Promise<ToolResult> {
   const { udid, size } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   // Map size names to UIContentSizeCategory values
   const sizeMap: Record<string, string> = {
@@ -369,7 +370,7 @@ export async function setContentSize(
   try {
     // Set the content size category via defaults
     simctl(
-      `spawn ${target} defaults write com.apple.UIKit UIPreferredContentSizeCategoryName -string "${categoryValue}"`
+      `spawn ${target} defaults write com.apple.UIKit UIPreferredContentSizeCategoryName -string ${shellEscape(categoryValue)}`
     );
 
     return {
@@ -410,7 +411,7 @@ export async function setAccessibility(
   input: z.infer<typeof setAccessibilitySchema>
 ): Promise<ToolResult> {
   const { udid, reduceMotion, reduceTransparency, increaseContrast, differentiateWithoutColor, boldText } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   const applied: string[] = [];
   const errors: string[] = [];

@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, validatePath, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -91,7 +92,7 @@ export async function setLocation(
   input: z.infer<typeof setLocationSchema>
 ): Promise<ToolResult> {
   const { udid, latitude, longitude } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     simctl(`location ${target} set ${latitude},${longitude}`);
@@ -134,7 +135,7 @@ export async function setPresetLocation(
   input: z.infer<typeof setPresetLocationSchema>
 ): Promise<ToolResult> {
   const { udid, preset } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   const location = PRESET_LOCATIONS[preset];
   if (!location) {
@@ -191,7 +192,7 @@ export async function clearLocation(
   input: z.infer<typeof clearLocationSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     simctl(`location ${target} clear`);
@@ -231,10 +232,11 @@ export async function simulateRoute(
   input: z.infer<typeof simulateRouteSchema>
 ): Promise<ToolResult> {
   const { udid, gpxFile } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`location ${target} start "${gpxFile}"`);
+    const validatedPath = validatePath(gpxFile);
+    simctl(`location ${target} start ${shellEscape(validatedPath)}`);
 
     return {
       content: [

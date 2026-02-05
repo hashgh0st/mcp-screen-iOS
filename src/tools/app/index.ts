@@ -6,6 +6,7 @@ import { z } from "zod";
 import { existsSync } from "fs";
 import { resolve } from "path";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, validatePath, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -95,8 +96,8 @@ export async function installApp(
   input: z.infer<typeof installAppSchema>
 ): Promise<ToolResult> {
   const { udid, appPath } = input;
-  const target = udid || "booted";
-  const fullPath = resolve(appPath);
+  const target = resolveTarget(udid);
+  const fullPath = validatePath(appPath);
 
   if (!existsSync(fullPath)) {
     return {
@@ -123,7 +124,7 @@ export async function installApp(
   }
 
   try {
-    simctl(`install ${target} "${fullPath}"`);
+    simctl(`install ${target} ${shellEscape(fullPath)}`);
     return {
       content: [
         {
@@ -160,11 +161,11 @@ export async function launchApp(
   input: z.infer<typeof launchAppSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, waitForDebugger } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     const args = waitForDebugger ? "--wait-for-debugger" : "";
-    const output = simctl(`launch ${args} ${target} ${bundleId}`);
+    const output = simctl(`launch ${args} ${target} ${shellEscape(bundleId)}`);
 
     return {
       content: [
@@ -204,10 +205,10 @@ export async function terminateApp(
   input: z.infer<typeof terminateAppSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`terminate ${target} ${bundleId}`);
+    simctl(`terminate ${target} ${shellEscape(bundleId)}`);
     return {
       content: [
         {
@@ -244,10 +245,10 @@ export async function uninstallApp(
   input: z.infer<typeof uninstallAppSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`uninstall ${target} ${bundleId}`);
+    simctl(`uninstall ${target} ${shellEscape(bundleId)}`);
     return {
       content: [
         {
@@ -284,10 +285,10 @@ export async function openUrl(
   input: z.infer<typeof openUrlSchema>
 ): Promise<ToolResult> {
   const { udid, url } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`openurl ${target} "${url}"`);
+    simctl(`openurl ${target} ${shellEscape(url)}`);
     return {
       content: [
         {
@@ -324,7 +325,7 @@ export async function listApps(
   input: z.infer<typeof listAppsSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     const output = simctl(`listapps ${target}`);
@@ -356,10 +357,10 @@ export async function getAppContainer(
   input: z.infer<typeof getAppContainerSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, container } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    const path = simctl(`get_app_container ${target} ${bundleId} ${container}`);
+    const path = simctl(`get_app_container ${target} ${shellEscape(bundleId)} ${container}`);
     return {
       content: [
         {

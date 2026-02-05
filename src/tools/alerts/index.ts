@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { execCommand } from "../../utils/exec.js";
+import { resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -62,7 +63,7 @@ export async function acceptAlert(
   input: z.infer<typeof acceptAlertSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use AppleScript to click the first button (usually "Allow" or "OK")
@@ -123,7 +124,7 @@ export async function dismissAlert(
   input: z.infer<typeof dismissAlertSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use AppleScript to click dismiss button
@@ -184,7 +185,7 @@ export async function triggerSiri(
   input: z.infer<typeof triggerSiriSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Long press home button or use Siri keyboard shortcut
@@ -236,7 +237,7 @@ export async function sendMemoryWarning(
   input: z.infer<typeof sendMemoryWarningSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use Simulator menu to send memory warning
@@ -287,7 +288,7 @@ export async function triggerICloudSync(
   input: z.infer<typeof triggerICloudSyncSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Use Simulator menu to trigger iCloud sync

@@ -38,7 +38,7 @@ describe("Simulator Tools", () => {
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
             {
-              udid: "ABC123",
+              udid: "ABCDEF01-2345-6789-ABCD-EF0123456789",
               name: "iPhone 16 Pro Max",
               state: "Booted",
               isAvailable: true,
@@ -71,7 +71,7 @@ describe("Simulator Tools", () => {
       const mockDevices = {
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABC123", name: "iPhone 16", state: "Booted", isAvailable: true },
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16", state: "Booted", isAvailable: true },
             { udid: "DEF456", name: "iPhone 15", state: "Shutdown", isAvailable: true },
           ],
         },
@@ -94,7 +94,7 @@ describe("Simulator Tools", () => {
       const mockDevices = {
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABC123", name: "iPhone 16 Pro Max", state: "Booted", isAvailable: true },
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro Max", state: "Booted", isAvailable: true },
           ],
         },
       };
@@ -105,7 +105,7 @@ describe("Simulator Tools", () => {
 
       const parsed = JSON.parse((result.content[0] as { text: string }).text);
       expect(parsed).toHaveLength(1);
-      expect(parsed[0].udid).toBe("ABC123");
+      expect(parsed[0].udid).toBe("ABCDEF01-2345-6789-ABCD-EF0123456789");
       expect(parsed[0].state).toBe("Booted");
     });
 
@@ -115,7 +115,7 @@ describe("Simulator Tools", () => {
       const mockDevices = {
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABC123", name: "iPhone 16", state: "Shutdown", isAvailable: true },
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16", state: "Shutdown", isAvailable: true },
           ],
         },
       };
@@ -143,7 +143,7 @@ describe("App Tools", () => {
 
       const result = await installApp({ appPath: "/path/to/MyApp.app" });
 
-      expect(simctl).toHaveBeenCalledWith('install booted "/path/to/MyApp.app"');
+      expect(simctl).toHaveBeenCalledWith("install booted '/path/to/MyApp.app'");
       expect(result.isError).toBeUndefined();
     });
 
@@ -178,7 +178,7 @@ describe("App Tools", () => {
 
       const result = await launchApp({ bundleId: "com.example.myapp" });
 
-      expect(simctl).toHaveBeenCalledWith("launch  booted com.example.myapp");
+      expect(simctl).toHaveBeenCalledWith("launch  booted 'com.example.myapp'");
       expect(result.isError).toBeUndefined();
     });
   });
@@ -191,7 +191,7 @@ describe("App Tools", () => {
 
       const result = await openUrl({ url: "myapp://settings" });
 
-      expect(simctl).toHaveBeenCalledWith('openurl booted "myapp://settings"');
+      expect(simctl).toHaveBeenCalledWith("openurl booted 'myapp://settings'");
       expect(result.isError).toBeUndefined();
     });
   });
@@ -213,7 +213,7 @@ describe("Privacy Tools", () => {
         service: "camera",
       });
 
-      expect(simctl).toHaveBeenCalledWith("privacy booted grant camera com.example.myapp");
+      expect(simctl).toHaveBeenCalledWith("privacy booted grant camera 'com.example.myapp'");
       expect(result.isError).toBeUndefined();
     });
   });
@@ -229,7 +229,7 @@ describe("Privacy Tools", () => {
         service: "all",
       });
 
-      expect(simctl).toHaveBeenCalledWith("privacy booted reset all com.example.myapp");
+      expect(simctl).toHaveBeenCalledWith("privacy booted reset all 'com.example.myapp'");
       expect(result.isError).toBeUndefined();
     });
 
@@ -344,7 +344,7 @@ describe("Notification Tools", () => {
       });
 
       expect(writeFileSync).toHaveBeenCalled();
-      expect(simctl).toHaveBeenCalledWith(expect.stringContaining("push booted com.example.myapp"));
+      expect(simctl).toHaveBeenCalledWith(expect.stringContaining("push booted 'com.example.myapp'"));
       expect(result.isError).toBeUndefined();
 
       const parsed = JSON.parse((result.content[0] as { text: string }).text);
@@ -366,14 +366,14 @@ describe("UI Tools", () => {
       JSON.stringify({
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABC123", name: "iPhone 16 Pro Max", state: "Booted" },
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro Max", state: "Booted" },
           ],
         },
       })
     );
     vi.mocked(execCommand).mockReturnValue("");
 
-    await uiTap({ udid: "ABC123", x: 10, y: 20 });
+    await uiTap({ udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", x: 10, y: 20 });
 
     const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
     expect(execCalls.some((call) => call.includes("iPhone 16 Pro Max"))).toBe(true);
@@ -386,7 +386,7 @@ describe("UI Tools", () => {
       JSON.stringify({
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "BOOTED123", name: "iPhone 16 Pro", state: "Booted" },
+            { udid: "B00TED01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro", state: "Booted" },
           ],
         },
       })
@@ -406,14 +406,14 @@ describe("UI Tools", () => {
       JSON.stringify({
         devices: {
           "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "DEVICE123", name: "iPhone 15 Pro Max", state: "Booted" },
+            { udid: "DE01CE01-2345-6789-ABCD-EF0123456789", name: "iPhone 15 Pro Max", state: "Booted" },
           ],
         },
       })
     );
     vi.mocked(execCommand).mockReturnValue("");
 
-    await uiPressButton({ udid: "DEVICE123", button: "lock" });
+    await uiPressButton({ udid: "DE01CE01-2345-6789-ABCD-EF0123456789", button: "lock" });
 
     const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
     expect(execCalls.some((call) => call.includes("iPhone 15 Pro Max"))).toBe(true);

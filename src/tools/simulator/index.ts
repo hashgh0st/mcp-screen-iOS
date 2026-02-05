@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { simctl, parseSimctlJson, simctlAsync } from "../../utils/exec.js";
+import { resolveTarget } from "../../utils/validation.js";
 import {
   SimctlListOutput,
   SimulatorDevice,
@@ -152,12 +153,13 @@ function getLatestRuntime(platform: string = "iOS"): string | null {
 /**
  * Find existing simulator matching device type
  */
-function findExistingSimulator(deviceType: string): SimulatorDevice | null {
+function findExistingSimulator(deviceType: string, alternateDeviceTypes?: string[]): SimulatorDevice | null {
   const data = parseSimctlJson<SimctlListOutput>("list devices");
+  const validTypes = new Set([deviceType, ...(alternateDeviceTypes || [])]);
 
   for (const devices of Object.values(data.devices)) {
     const match = devices.find(
-      (d) => d.deviceTypeIdentifier === deviceType && d.isAvailable
+      (d) => validTypes.has(d.deviceTypeIdentifier) && d.isAvailable
     );
     if (match) {
       return match;
@@ -190,7 +192,7 @@ export async function bootAppStoreSimulator(
 
   // Check for existing simulator if keepExisting is true
   if (keepExisting) {
-    const existing = findExistingSimulator(deviceConfig.deviceType);
+    const existing = findExistingSimulator(deviceConfig.deviceType, deviceConfig.alternateDeviceTypes);
     if (existing) {
       if (existing.state !== "Booted") {
         try {
@@ -336,7 +338,7 @@ export async function shutdownSimulator(
   input: z.infer<typeof shutdownSimulatorSchema>
 ): Promise<ToolResult> {
   const { udid, delete: shouldDelete } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     simctl(`shutdown ${target}`);

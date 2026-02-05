@@ -6,7 +6,9 @@
 
 import { z } from "zod";
 import { writeFileSync, unlinkSync } from "fs";
+import { randomUUID } from "crypto";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -118,7 +120,7 @@ export async function sendNotification(
   input: z.infer<typeof sendNotificationSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, title, body, subtitle, badge, sound, category, threadId, customData } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   const payload = buildPayload({
     title,
@@ -131,17 +133,14 @@ export async function sendNotification(
     customData,
   });
 
-  const tempPath = `/tmp/notification-${Date.now()}.json`;
+  const tempPath = `/tmp/notification-${randomUUID()}.json`;
 
   try {
     // Write payload to temp file
     writeFileSync(tempPath, JSON.stringify(payload, null, 2));
 
     // Send notification
-    simctl(`push ${target} ${bundleId} "${tempPath}"`);
-
-    // Cleanup
-    unlinkSync(tempPath);
+    simctl(`push ${target} ${shellEscape(bundleId)} ${shellEscape(tempPath)}`);
 
     return {
       content: [
@@ -163,13 +162,6 @@ export async function sendNotification(
       ],
     };
   } catch (error) {
-    // Cleanup on error
-    try {
-      unlinkSync(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-
     return {
       content: [
         {
@@ -179,6 +171,12 @@ export async function sendNotification(
       ],
       isError: true,
     };
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 
@@ -189,9 +187,9 @@ export async function sendRawNotification(
   input: z.infer<typeof sendRawNotificationSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, payload } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
-  const tempPath = `/tmp/notification-${Date.now()}.json`;
+  const tempPath = `/tmp/notification-${randomUUID()}.json`;
 
   try {
     // Validate JSON
@@ -201,10 +199,7 @@ export async function sendRawNotification(
     writeFileSync(tempPath, JSON.stringify(parsed, null, 2));
 
     // Send notification
-    simctl(`push ${target} ${bundleId} "${tempPath}"`);
-
-    // Cleanup
-    unlinkSync(tempPath);
+    simctl(`push ${target} ${shellEscape(bundleId)} ${shellEscape(tempPath)}`);
 
     return {
       content: [
@@ -224,13 +219,6 @@ export async function sendRawNotification(
       ],
     };
   } catch (error) {
-    // Cleanup on error
-    try {
-      unlinkSync(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-
     if (error instanceof SyntaxError) {
       return {
         content: [
@@ -252,6 +240,12 @@ export async function sendRawNotification(
       ],
       isError: true,
     };
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 
@@ -262,7 +256,7 @@ export async function sendSilentNotification(
   input: z.infer<typeof sendSilentNotificationSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, customData } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   const payload = {
     aps: {
@@ -271,17 +265,14 @@ export async function sendSilentNotification(
     ...customData,
   };
 
-  const tempPath = `/tmp/notification-${Date.now()}.json`;
+  const tempPath = `/tmp/notification-${randomUUID()}.json`;
 
   try {
     // Write payload to temp file
     writeFileSync(tempPath, JSON.stringify(payload, null, 2));
 
     // Send notification
-    simctl(`push ${target} ${bundleId} "${tempPath}"`);
-
-    // Cleanup
-    unlinkSync(tempPath);
+    simctl(`push ${target} ${shellEscape(bundleId)} ${shellEscape(tempPath)}`);
 
     return {
       content: [
@@ -302,13 +293,6 @@ export async function sendSilentNotification(
       ],
     };
   } catch (error) {
-    // Cleanup on error
-    try {
-      unlinkSync(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-
     return {
       content: [
         {
@@ -318,6 +302,12 @@ export async function sendSilentNotification(
       ],
       isError: true,
     };
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 

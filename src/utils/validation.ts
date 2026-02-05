@@ -46,6 +46,18 @@ export function validatePath(inputPath: string, allowedBase?: string): string {
 }
 
 /**
+ * Resolve simulator target (UDID or "booted") and validate format.
+ * Returns a shell-safe target string.
+ */
+export function resolveTarget(udid?: string): string {
+  const target = udid || "booted";
+  if (target !== "booted" && !/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(target)) {
+    throw new Error(`Invalid simulator UDID format: ${target}`);
+  }
+  return target;
+}
+
+/**
  * Escape string for shell commands using single quotes
  */
 export function shellEscape(str: string): string {

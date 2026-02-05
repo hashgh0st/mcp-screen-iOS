@@ -63,6 +63,10 @@ export const getRecordingStatusSchema = z.object({
  */
 function resolveUdid(udid?: string): string {
   if (udid && udid !== "booted") {
+    // Validate UDID format to prevent injection
+    if (!/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(udid)) {
+      throw new Error(`Invalid simulator UDID format: ${udid}`);
+    }
     return udid;
   }
 

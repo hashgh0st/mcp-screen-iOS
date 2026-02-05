@@ -63,6 +63,7 @@ export interface SimctlListOutput {
 export interface AppStoreDeviceConfig {
   name: string;
   deviceType: string;
+  alternateDeviceTypes?: string[];
   primaryResolution: {
     width: number;
     height: number;
@@ -81,6 +82,9 @@ export const APP_STORE_DEVICES: Record<string, AppStoreDeviceConfig> = {
   "iphone_6.9": {
     name: "iPhone 16 Pro Max",
     deviceType: "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
+    alternateDeviceTypes: [
+      "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max",
+    ],
     primaryResolution: { width: 1320, height: 2868 },
     acceptedResolutions: [
       { width: 1320, height: 2868 },
@@ -92,6 +96,11 @@ export const APP_STORE_DEVICES: Record<string, AppStoreDeviceConfig> = {
   "ipad_13": {
     name: "iPad Pro 13-inch (M4)",
     deviceType: "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4",
+    alternateDeviceTypes: [
+      "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4-8GB",
+      "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB",
+      "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-16GB",
+    ],
     primaryResolution: { width: 2064, height: 2752 },
     acceptedResolutions: [
       { width: 2064, height: 2752 },

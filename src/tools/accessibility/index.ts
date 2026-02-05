@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -64,7 +65,7 @@ export async function describeUi(
   input: z.infer<typeof describeUiSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Try simctl ui describe command (Xcode 15+)
@@ -119,7 +120,7 @@ export async function describePoint(
   input: z.infer<typeof describePointSchema>
 ): Promise<ToolResult> {
   const { udid, x, y } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Try to get element info at point
@@ -169,7 +170,7 @@ export async function findElement(
   input: z.infer<typeof findElementSchema>
 ): Promise<ToolResult> {
   const { udid, label, identifier, type } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   if (!label && !identifier && !type) {
     return {
@@ -186,9 +187,9 @@ export async function findElement(
   try {
     // Build search criteria
     const criteria: string[] = [];
-    if (label) criteria.push(`--label "${label}"`);
-    if (identifier) criteria.push(`--identifier "${identifier}"`);
-    if (type) criteria.push(`--type "${type}"`);
+    if (label) criteria.push(`--label ${shellEscape(label)}`);
+    if (identifier) criteria.push(`--identifier ${shellEscape(identifier)}`);
+    if (type) criteria.push(`--type ${shellEscape(type)}`);
 
     // Try simctl ui find command
     const output = simctl(`ui ${target} find ${criteria.join(" ")}`);
@@ -260,7 +261,7 @@ export async function getScreenInfo(
   input: z.infer<typeof getScreenInfoSchema>
 ): Promise<ToolResult> {
   const { udid } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     // Get device info from simctl list

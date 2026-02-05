@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { simctl } from "../../utils/exec.js";
+import { shellEscape, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";
 
 /**
@@ -97,10 +98,10 @@ export async function grantPermission(
   input: z.infer<typeof grantPermissionSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, service } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`privacy ${target} grant ${service} ${bundleId}`);
+    simctl(`privacy ${target} grant ${service} ${shellEscape(bundleId)}`);
 
     return {
       content: [
@@ -140,10 +141,10 @@ export async function revokePermission(
   input: z.infer<typeof revokePermissionSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, service } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
-    simctl(`privacy ${target} revoke ${service} ${bundleId}`);
+    simctl(`privacy ${target} revoke ${service} ${shellEscape(bundleId)}`);
 
     return {
       content: [
@@ -183,11 +184,11 @@ export async function resetPermission(
   input: z.infer<typeof resetPermissionSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId, service } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   try {
     if (bundleId) {
-      simctl(`privacy ${target} reset ${service} ${bundleId}`);
+      simctl(`privacy ${target} reset ${service} ${shellEscape(bundleId)}`);
     } else {
       simctl(`privacy ${target} reset ${service}`);
     }
@@ -230,7 +231,7 @@ export async function grantAllPermissions(
   input: z.infer<typeof grantAllPermissionsSchema>
 ): Promise<ToolResult> {
   const { udid, bundleId } = input;
-  const target = udid || "booted";
+  const target = resolveTarget(udid);
 
   const commonServices: PrivacyService[] = [
     "camera",
@@ -249,7 +250,7 @@ export async function grantAllPermissions(
 
   for (const service of commonServices) {
     try {
-      simctl(`privacy ${target} grant ${service} ${bundleId}`);
+      simctl(`privacy ${target} grant ${service} ${shellEscape(bundleId)}`);
       results.push({ service, success: true });
     } catch (error) {
       results.push({
