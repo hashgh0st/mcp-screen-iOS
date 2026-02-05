@@ -8,6 +8,7 @@ import { resolveTarget } from "../../utils/validation.js";
 import {
   SimctlListOutput,
   SimulatorDevice,
+  AppStoreDeviceConfig,
   APP_STORE_DEVICES,
   ToolResult,
 } from "../../types/index.js";
@@ -150,6 +151,40 @@ function getLatestRuntime(platform: string = "iOS"): string | null {
   return runtimes[0]?.identifier || null;
 }
 
+function resolveDeviceType(
+  deviceConfig: AppStoreDeviceConfig
+): { deviceType: string; warning?: string } | { error: string } {
+  try {
+    const data = parseSimctlJson<{ devicetypes: SimctlListOutput["devicetypes"] }>("list devicetypes");
+    const available = new Set(data.devicetypes.map((type) => type.identifier));
+    const requested = [
+      deviceConfig.deviceType,
+      ...(deviceConfig.alternateDeviceTypes || []),
+    ];
+    const selected = requested.find((type) => available.has(type));
+
+    if (!selected) {
+      return {
+        error:
+          "None of the requested device types are available in Xcode: " +
+          requested.join(", ") +
+          ". Run \"xcrun simctl list devicetypes\" to verify installed runtimes and device types.",
+      };
+    }
+
+    if (selected !== deviceConfig.deviceType) {
+      return {
+        deviceType: selected,
+        warning: `Primary device type ${deviceConfig.deviceType} not available; using ${selected} instead.`,
+      };
+    }
+
+    return { deviceType: selected };
+  } catch {
+    return { deviceType: deviceConfig.deviceType };
+  }
+}
+
 /**
  * Find existing simulator matching device type
  */
@@ -184,6 +219,19 @@ export async function bootAppStoreSimulator(
         {
           type: "text",
           text: `Unknown device class: ${deviceClass}. Available: ${Object.keys(APP_STORE_DEVICES).join(", ")}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const resolvedDeviceType = resolveDeviceType(deviceConfig);
+  if ("error" in resolvedDeviceType) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: resolvedDeviceType.error,
         },
       ],
       isError: true,
@@ -233,9 +281,11 @@ export async function bootAppStoreSimulator(
                 udid: existing.udid,
                 name: existing.name,
                 deviceClass,
+                deviceType: existing.deviceTypeIdentifier,
                 primaryResolution: deviceConfig.primaryResolution,
                 acceptedResolutions: deviceConfig.acceptedResolutions,
                 appStoreClass: deviceConfig.appStoreClass,
+                ...(resolvedDeviceType.warning ? { note: resolvedDeviceType.warning } : {}),
               },
               null,
               2
@@ -264,13 +314,13 @@ export async function bootAppStoreSimulator(
   const simulatorName = `AppStore-${deviceClass}-${Date.now()}`;
   let udid: string;
   try {
-    udid = simctl(`create "${simulatorName}" ${deviceConfig.deviceType} ${runtimeId}`);
+    udid = simctl(`create "${simulatorName}" ${resolvedDeviceType.deviceType} ${runtimeId}`);
   } catch (error) {
     return {
       content: [
         {
           type: "text",
-          text: `Failed to create simulator: ${error instanceof Error ? error.message : String(error)}. Ensure the device type ${deviceConfig.deviceType} is available in Xcode.`,
+          text: `Failed to create simulator: ${error instanceof Error ? error.message : String(error)}. Ensure the device type ${resolvedDeviceType.deviceType} is available in Xcode.`,
         },
       ],
       isError: true,
@@ -317,11 +367,12 @@ export async function bootAppStoreSimulator(
             udid,
             name: simulatorName,
             deviceClass,
-            deviceType: deviceConfig.deviceType,
+            deviceType: resolvedDeviceType.deviceType,
             runtime: runtimeId,
             primaryResolution: deviceConfig.primaryResolution,
             acceptedResolutions: deviceConfig.acceptedResolutions,
             appStoreClass: deviceConfig.appStoreClass,
+            ...(resolvedDeviceType.warning ? { note: resolvedDeviceType.warning } : {}),
           },
           null,
           2

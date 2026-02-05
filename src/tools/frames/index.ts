@@ -72,7 +72,7 @@ export const addFrameSchema = z.object({
     .optional()
     .describe("Output path for framed image (defaults to input_framed.png)"),
   device: z
-    .enum(["iphone_16_pro_max", "iphone_16_pro", "iphone_15_pro_max", "ipad_pro_13", "ipad_pro_12_9", "auto"])
+    .enum(["iphone_17_pro_max", "iphone_16_pro_max", "iphone_16_pro", "ipad_pro_13", "auto"])
     .optional()
     .default("auto")
     .describe("Device frame to apply (auto-detects from image dimensions)"),
@@ -221,7 +221,7 @@ export async function addFrame(
   // Detect or use specified device
   let deviceId: string = device;
   if (device === "auto") {
-    deviceId = detectDevice(dimensions.width, dimensions.height) || "iphone_16_pro_max";
+    deviceId = detectDevice(dimensions.width, dimensions.height) || "iphone_17_pro_max";
   }
 
   const frameConfig = DEVICE_FRAMES[deviceId as keyof typeof DEVICE_FRAMES];
