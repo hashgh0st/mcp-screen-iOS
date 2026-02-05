@@ -63,9 +63,12 @@ function createServer(): McpServer {
       tool.description,
       tool.schema.shape,
       async (input: Record<string, unknown>) => {
-        // Parse and validate input
+        // Parse and validate input using Zod schema
         const parsed = tool.schema.parse(input);
-        // Call handler and return result
+        // Call handler - the 'as never' cast is safe here because:
+        // 1. Zod schema.parse() guarantees the input matches the handler's expected type
+        // 2. Each tool's schema and handler are defined together, ensuring type correspondence
+        // 3. TypeScript cannot infer this relationship across the heterogeneous tool array
         const result = await tool.handler(parsed as never);
         return result;
       }

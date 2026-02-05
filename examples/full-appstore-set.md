@@ -98,10 +98,11 @@ boot_appstore_simulator(deviceClass: "ipad_13")
 # Capture current screen on all booted App Store simulators
 capture_all_appstore(
   outputDir: "./screenshots",
-  filenamePrefix: "home",
   deviceClasses: ["iphone_6.9", "ipad_13"]
 )
-# Creates: ./screenshots/home_iphone_6.9.png and ./screenshots/home_ipad_13.png
+# Creates:
+# - ./screenshots/current/iphone-6.9/01-screenshot.png
+# - ./screenshots/current/ipad-13/01-screenshot.png
 ```
 
 ## Output Directory Structure

@@ -321,7 +321,11 @@ export async function getScreenInfo(
       "iPad Air 11-inch (M2)": { width: 820, height: 1180, scale: 2 },
     };
 
+    // Default dimensions for unknown devices (iPhone 14 Pro defaults)
+    const defaultDimensions = { width: 393, height: 852, scale: 3 };
     const dimensions = screenDimensions[deviceInfo.name] || null;
+    const effectiveDimensions = dimensions || defaultDimensions;
+    const isUsingDefaults = !dimensions;
 
     return {
       content: [
@@ -336,18 +340,17 @@ export async function getScreenInfo(
                 deviceType: deviceInfo.deviceTypeIdentifier,
                 runtime: runtimeId,
               },
-              screen: dimensions
-                ? {
-                    pointWidth: dimensions.width,
-                    pointHeight: dimensions.height,
-                    scale: dimensions.scale,
-                    pixelWidth: dimensions.width * dimensions.scale,
-                    pixelHeight: dimensions.height * dimensions.scale,
-                  }
-                : {
-                    note: "Screen dimensions not in database for this device",
-                    hint: "Use capture_screenshot to determine actual pixel dimensions",
-                  },
+              screen: {
+                pointWidth: effectiveDimensions.width,
+                pointHeight: effectiveDimensions.height,
+                scale: effectiveDimensions.scale,
+                pixelWidth: effectiveDimensions.width * effectiveDimensions.scale,
+                pixelHeight: effectiveDimensions.height * effectiveDimensions.scale,
+                ...(isUsingDefaults ? {
+                  warning: `Unknown device "${deviceInfo.name}", using default dimensions. Actual dimensions may differ.`,
+                  hint: "Use capture_screenshot to determine actual pixel dimensions",
+                } : {}),
+              },
             },
             null,
             2

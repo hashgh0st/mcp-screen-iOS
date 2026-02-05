@@ -123,16 +123,28 @@ export async function listSimulators(
 /**
  * Get the latest available iOS runtime
  */
+function compareVersionStrings(a: string, b: string): number {
+  const partsA = a.split(".").map((part) => Number.parseInt(part, 10));
+  const partsB = b.split(".").map((part) => Number.parseInt(part, 10));
+  const maxLen = Math.max(partsA.length, partsB.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    const va = Number.isFinite(partsA[i]) ? partsA[i] : 0;
+    const vb = Number.isFinite(partsB[i]) ? partsB[i] : 0;
+    if (va !== vb) {
+      return vb - va; // descending
+    }
+  }
+
+  return 0;
+}
+
 function getLatestRuntime(platform: string = "iOS"): string | null {
   const data = parseSimctlJson<SimctlListOutput>("list runtimes");
 
   const runtimes = data.runtimes
     .filter((r) => r.isAvailable && r.name.includes(platform))
-    .sort((a, b) => {
-      const versionA = parseFloat(a.version);
-      const versionB = parseFloat(b.version);
-      return versionB - versionA;
-    });
+    .sort((a, b) => compareVersionStrings(a.version, b.version));
 
   return runtimes[0]?.identifier || null;
 }
@@ -181,9 +193,33 @@ export async function bootAppStoreSimulator(
     const existing = findExistingSimulator(deviceConfig.deviceType);
     if (existing) {
       if (existing.state !== "Booted") {
-        simctl(`boot ${existing.udid}`);
+        try {
+          simctl(`boot ${existing.udid}`);
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Failed to boot existing simulator: ${error instanceof Error ? error.message : String(error)}`,
+              },
+            ],
+            isError: true,
+          };
+        }
         // Wait for boot to complete
-        await simctlAsync(`bootstatus ${existing.udid}`, { timeout: 120000 });
+        try {
+          await simctlAsync(`bootstatus ${existing.udid}`, { timeout: 120000 });
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Simulator boot timed out or failed: ${error instanceof Error ? error.message : String(error)}`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
       return {
         content: [
@@ -224,13 +260,50 @@ export async function bootAppStoreSimulator(
 
   // Create new simulator
   const simulatorName = `AppStore-${deviceClass}-${Date.now()}`;
-  const udid = simctl(`create "${simulatorName}" ${deviceConfig.deviceType} ${runtimeId}`);
+  let udid: string;
+  try {
+    udid = simctl(`create "${simulatorName}" ${deviceConfig.deviceType} ${runtimeId}`);
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to create simulator: ${error instanceof Error ? error.message : String(error)}. Ensure the device type ${deviceConfig.deviceType} is available in Xcode.`,
+        },
+      ],
+      isError: true,
+    };
+  }
 
   // Boot the simulator
-  simctl(`boot ${udid}`);
+  try {
+    simctl(`boot ${udid}`);
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to boot simulator: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
 
   // Wait for boot to complete
-  await simctlAsync(`bootstatus ${udid}`, { timeout: 120000 });
+  try {
+    await simctlAsync(`bootstatus ${udid}`, { timeout: 120000 });
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Simulator boot timed out or failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
 
   return {
     content: [

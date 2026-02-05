@@ -9,6 +9,7 @@ import { existsSync } from "fs";
 import { dirname, resolve, basename, extname, join } from "path";
 import { execCommand, commandExists } from "../../utils/exec.js";
 import { ToolResult } from "../../types/index.js";
+import { sanitizeHexColor, validatePath } from "../../utils/validation.js";
 
 /**
  * Device frame configurations
@@ -164,6 +165,16 @@ function getImageDimensions(imagePath: string): { width: number; height: number 
   return null;
 }
 
+function getImageMagickBinary(): "magick" | "convert" | null {
+  if (commandExists("magick")) {
+    return "magick";
+  }
+  if (commandExists("convert")) {
+    return "convert";
+  }
+  return null;
+}
+
 /**
  * Add a device frame around a screenshot
  */
@@ -171,7 +182,27 @@ export async function addFrame(
   input: z.infer<typeof addFrameSchema>
 ): Promise<ToolResult> {
   const { inputPath, outputPath, device, backgroundColor, padding, shadow } = input;
-  const fullInputPath = resolve(inputPath);
+
+  // Validate inputs
+  let fullInputPath: string;
+  try {
+    fullInputPath = validatePath(inputPath);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid input path: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
+
+  let safeBackgroundColor: string;
+  try {
+    safeBackgroundColor = sanitizeHexColor(backgroundColor);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid background color: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
 
   if (!existsSync(fullInputPath)) {
     return {
@@ -209,10 +240,9 @@ export async function addFrame(
     };
   }
 
-  // Check if ImageMagick is available
-  const hasImageMagick = commandExists("magick") || commandExists("convert");
+  const imageMagick = getImageMagickBinary();
 
-  if (!hasImageMagick) {
+  if (!imageMagick) {
     // Fall back to sips for basic operations
     try {
       // Use sips for basic padding (limited compared to ImageMagick)
@@ -220,7 +250,7 @@ export async function addFrame(
       const paddedHeight = dimensions.height + padding * 2;
 
       // Create a simple padded version using sips
-      execCommand(`sips -p ${paddedHeight} ${paddedWidth} --padColor ${backgroundColor.replace("#", "")} "${fullInputPath}" --out "${fullOutputPath}"`);
+      execCommand(`sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} "${fullInputPath}" --out "${fullOutputPath}"`);
 
       return {
         content: [
@@ -262,7 +292,7 @@ export async function addFrame(
     const totalHeight = dimensions.height + bezelWidth * 2 + padding * 2;
 
     // Build ImageMagick command for frame effect
-    let cmd = `magick "${fullInputPath}"`;
+    let cmd = `${imageMagick} "${fullInputPath}"`;
 
     // Add rounded corners to screenshot
     cmd += ` \\( +clone -alpha extract -draw "fill black polygon 0,0 0,${cornerRadius} ${cornerRadius},0 fill white circle ${cornerRadius},${cornerRadius} ${cornerRadius},0" \\( +clone -flip \\) -compose Multiply -composite \\( +clone -flop \\) -compose Multiply -composite \\) -alpha off -compose CopyOpacity -composite`;
@@ -279,8 +309,8 @@ export async function addFrame(
       cmd += ` \\( +clone -background black -shadow 60x20+0+10 \\) +swap -background none -layers merge +repage`;
     }
 
-    // Add background and padding
-    cmd += ` -background "${backgroundColor}" -gravity center -extent ${totalWidth}x${totalHeight}`;
+    // Add background and padding (use original backgroundColor with # for ImageMagick)
+    cmd += ` -background "#${safeBackgroundColor}" -gravity center -extent ${totalWidth}x${totalHeight}`;
 
     cmd += ` "${fullOutputPath}"`;
 
@@ -325,8 +355,28 @@ export async function addFrame(
 export async function addBackground(
   input: z.infer<typeof addBackgroundSchema>
 ): Promise<ToolResult> {
-  const { inputPath, outputPath, backgroundColor, padding } = input;
-  const fullInputPath = resolve(inputPath);
+  const { inputPath, outputPath, backgroundColor, padding, cornerRadius } = input;
+
+  // Validate inputs
+  let fullInputPath: string;
+  try {
+    fullInputPath = validatePath(inputPath);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid input path: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
+
+  let safeBackgroundColor: string;
+  try {
+    safeBackgroundColor = sanitizeHexColor(backgroundColor);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid background color: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
 
   if (!existsSync(fullInputPath)) {
     return {
@@ -352,10 +402,21 @@ export async function addBackground(
     const paddedWidth = dimensions.width + padding * 2;
     const paddedHeight = dimensions.height + padding * 2;
 
-    // Use sips for basic operation
-    execCommand(
-      `sips -p ${paddedHeight} ${paddedWidth} --padColor ${backgroundColor.replace("#", "")} "${fullInputPath}" --out "${fullOutputPath}"`
-    );
+    const imageMagick = getImageMagickBinary();
+
+    if (cornerRadius > 0 && imageMagick) {
+      // Use ImageMagick to apply rounded corners, then pad/extend with background.
+      let cmd = `${imageMagick} "${fullInputPath}"`;
+      cmd += ` \\( +clone -alpha extract -draw "fill black polygon 0,0 0,${cornerRadius} ${cornerRadius},0 fill white circle ${cornerRadius},${cornerRadius} ${cornerRadius},0" \\( +clone -flip \\) -compose Multiply -composite \\( +clone -flop \\) -compose Multiply -composite \\) -alpha off -compose CopyOpacity -composite`;
+      cmd += ` -background "#${safeBackgroundColor}" -gravity center -extent ${paddedWidth}x${paddedHeight}`;
+      cmd += ` "${fullOutputPath}"`;
+      execCommand(cmd);
+    } else {
+      // Use sips for basic operation (no rounded corners).
+      execCommand(
+        `sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} "${fullInputPath}" --out "${fullOutputPath}"`
+      );
+    }
 
     return {
       content: [
@@ -368,6 +429,8 @@ export async function addBackground(
               outputPath: fullOutputPath,
               backgroundColor,
               padding,
+              cornerRadius,
+              cornerRadiusApplied: cornerRadius > 0 ? Boolean(imageMagick) : false,
               dimensions: { width: paddedWidth, height: paddedHeight },
             },
             null,
@@ -404,7 +467,7 @@ export async function listDeviceFrames(
     cornerRadius: config.cornerRadius,
   }));
 
-  const hasImageMagick = commandExists("magick") || commandExists("convert");
+  const imageMagick = getImageMagickBinary();
 
   return {
     content: [
@@ -413,8 +476,9 @@ export async function listDeviceFrames(
         text: JSON.stringify(
           {
             availableFrames: frames,
-            imageMagickInstalled: hasImageMagick,
-            note: hasImageMagick
+            imageMagickInstalled: Boolean(imageMagick),
+            imageMagickBinary: imageMagick,
+            note: imageMagick
               ? "Full frame support available"
               : "Install ImageMagick for full frame support: brew install imagemagick",
           },

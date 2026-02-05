@@ -163,10 +163,13 @@ export async function startRecording(
     activeRecordings.delete(resolvedUdid);
   });
 
-  // Collect any error output
+  // Collect any error output (capped to prevent memory issues)
+  const MAX_ERROR_BUFFER = 10 * 1024; // 10KB max
   let errorOutput = "";
   recordProcess.stderr?.on("data", (data) => {
-    errorOutput += data.toString();
+    if (errorOutput.length < MAX_ERROR_BUFFER) {
+      errorOutput += data.toString().slice(0, MAX_ERROR_BUFFER - errorOutput.length);
+    }
   });
 
   // Wait a moment to ensure recording started

@@ -93,8 +93,8 @@ export const captureAllAppStoreSchema = z.object({
   languageTags: z
     .array(z.string())
     .optional()
-    .default(["en-US"])
-    .describe("Language/locale tags to capture (e.g., ['en-US', 'ja-JP', 'fr-FR'])"),
+    .default(["current"])
+    .describe("Language/locale tags to capture. Use 'current' to avoid changing simulator locale (e.g., ['current'] or ['en-US', 'ja-JP'])"),
   scenes: z
     .array(sceneSchema)
     .optional()
@@ -102,7 +102,7 @@ export const captureAllAppStoreSchema = z.object({
   bundleId: z
     .string()
     .optional()
-    .describe("App bundle ID - required when using languageTags or scenes (for app restart/launch)"),
+    .describe("App bundle ID - required when capturing non-'current' locales (needed for app restart to apply locale)"),
 });
 
 export const setStatusBarSchema = z.object({
@@ -257,6 +257,45 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isCurrentLanguageTag(tag: string): boolean {
+  return tag.trim().toLowerCase() === "current";
+}
+
+function parseLocaleAndLanguage(tag: string): { locale: string; language: string } {
+  const trimmed = tag.trim();
+
+  // Accept common underscore locale format: en_US, ja_JP, zh_CN, etc.
+  if (trimmed.includes("_")) {
+    const language = trimmed.split("_")[0];
+    return { locale: trimmed, language };
+  }
+
+  // Basic BCP-47 parsing: language[-Script][-REGION]
+  const parts = trimmed.split("-").filter(Boolean);
+  const language = parts[0];
+
+  let script: string | undefined;
+  let region: string | undefined;
+
+  for (const part of parts.slice(1)) {
+    if (part.length === 4) {
+      script = part[0].toUpperCase() + part.slice(1).toLowerCase();
+      continue;
+    }
+    if (part.length === 2) {
+      region = part.toUpperCase();
+      continue;
+    }
+    if (/^\d{3}$/.test(part)) {
+      region = part;
+    }
+  }
+
+  const locale = region ? `${language}_${region}` : language;
+  const appleLanguage = script ? `${language}-${script}` : language;
+  return { locale, language: appleLanguage };
+}
+
 /**
  * Apply status bar overrides
  */
@@ -359,9 +398,6 @@ export async function captureScreenshotInline(
     const imageBuffer = readFileSync(tempPath);
     const base64Data = imageBuffer.toString("base64");
 
-    // Cleanup
-    unlinkSync(tempPath);
-
     return {
       content: [
         {
@@ -372,11 +408,24 @@ export async function captureScreenshotInline(
       ],
     };
   } catch (error) {
-    // Cleanup on error
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Failed to capture screenshot inline: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  } finally {
+    // Always cleanup temp file
     if (existsSync(tempPath)) {
-      unlinkSync(tempPath);
+      try {
+        unlinkSync(tempPath);
+      } catch {
+        // Ignore cleanup errors
+      }
     }
-    throw error;
   }
 }
 
@@ -397,13 +446,15 @@ export async function captureAllAppStore(
     bundleId,
   } = input;
 
-  // Validate: bundleId required for multi-locale or scenes
-  if ((languageTags.length > 1 || scenes) && !bundleId) {
+  const wantsLocaleOverride = languageTags.some((tag) => !isCurrentLanguageTag(tag));
+
+  // Validate: bundleId required when applying locale overrides (app restart needed)
+  if (wantsLocaleOverride && !bundleId) {
     return {
       content: [
         {
           type: "text",
-          text: "bundleId is required when using multiple languageTags or scenes (needed for app restart)",
+          text: "bundleId is required when capturing non-'current' locales (needed for app restart to apply locale)",
         },
       ],
       isError: true,
@@ -441,9 +492,8 @@ export async function captureAllAppStore(
 
   // Main orchestration loop: language -> appearance -> device -> scene
   for (const languageTag of languageTags) {
-    // Convert language tag format (en-US -> en_US for locale, en for language)
-    const locale = languageTag.replace("-", "_");
-    const language = languageTag.split("-")[0];
+    const applyLocale = !isCurrentLanguageTag(languageTag);
+    const localeInfo = applyLocale ? parseLocaleAndLanguage(languageTag) : null;
 
     for (const mode of appearanceModes) {
       for (const deviceClass of deviceClasses) {
@@ -474,23 +524,25 @@ export async function captureAllAppStore(
         }
 
         try {
-          // Set locale (requires app restart to take effect)
-          simctl(`spawn ${udid} defaults write -globalDomain AppleLocale -string "${locale}"`);
-          simctl(`spawn ${udid} defaults write -globalDomain AppleLanguages -array "${language}"`);
+          // Apply locale (requires app restart to take effect)
+          if (applyLocale && localeInfo) {
+            simctl(`spawn ${udid} defaults write -globalDomain AppleLocale -string "${localeInfo.locale}"`);
+            simctl(`spawn ${udid} defaults write -globalDomain AppleLanguages -array "${localeInfo.language}"`);
+          }
 
           // Set appearance mode
           simctl(`ui ${udid} appearance ${mode}`);
 
-          // Restart app to apply locale changes
-          if (bundleId) {
+          // Restart app to apply locale changes (only needed when we changed locale)
+          if (applyLocale && bundleId) {
             try {
               simctl(`terminate ${udid} ${bundleId}`);
             } catch {
               // App may not be running, ignore
             }
-            await sleep(500);
+            await sleep(1500); // Wait for app to fully terminate
             simctl(`launch ${udid} ${bundleId}`);
-            await sleep(1000); // Wait for app to launch
+            await sleep(2000); // Wait for app to fully launch
           }
 
           // Apply clean status bar

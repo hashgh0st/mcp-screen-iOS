@@ -18,10 +18,10 @@ export const uiTapSchema = z.object({
     .describe("Simulator UDID (defaults to 'booted')"),
   x: z
     .number()
-    .describe("X coordinate (in points, not pixels)"),
+    .describe("X coordinate in iOS points (requires Xcode 15+ `simctl ui`)"),
   y: z
     .number()
-    .describe("Y coordinate (in points, not pixels)"),
+    .describe("Y coordinate in iOS points (requires Xcode 15+ `simctl ui`)"),
 });
 
 export const uiSwipeSchema = z.object({
@@ -45,7 +45,7 @@ export const uiSwipeSchema = z.object({
     .number()
     .optional()
     .default(0.3)
-    .describe("Swipe duration in seconds"),
+    .describe("Swipe duration in seconds (best-effort; support depends on `simctl ui`)"),
 });
 
 export const uiTypeSchema = z.object({
@@ -95,7 +95,7 @@ export const uiScrollSchema = z.object({
     .number()
     .optional()
     .default(300)
-    .describe("Scroll distance in points"),
+    .describe("Scroll distance in iOS points"),
   x: z
     .number()
     .optional()
@@ -203,21 +203,47 @@ export async function uiTap(
   const target = udid || "booted";
 
   try {
-    focusSimulatorWindow(udid);
-    // Use simctl io to send touch event
-    // Note: This requires the simulator to be in focus
-    const script = `
-tell application "Simulator"
-  activate
-end tell
-delay 0.2
-tell application "System Events"
-  tell process "Simulator"
-    click at {${Math.round(x)}, ${Math.round(y)}}
-  end tell
-end tell
-`;
-    runAppleScript(script.trim().replace(/\n/g, "\" -e \""));
+    // Best-effort focus (simctl doesn't require it, but it helps when mixing tools).
+    try {
+      focusSimulatorWindow(udid);
+    } catch {
+      // Ignore focus errors (e.g., missing Automation permission).
+    }
+
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+
+    const attempts = [
+      `ui ${target} tap ${rx} ${ry}`,
+      `ui ${target} tap --point ${rx},${ry}`,
+      `ui ${target} tap ${rx},${ry}`,
+    ];
+
+    let lastError: unknown;
+    for (const cmd of attempts) {
+      try {
+        simctl(cmd);
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `Failed to tap via simctl. ` +
+              `This requires Xcode 15+ with \`xcrun simctl ui\` support.\n\n` +
+              `${lastError instanceof Error ? lastError.message : String(lastError)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
 
     return {
       content: [
@@ -228,6 +254,7 @@ end tell
               message: "Tap executed",
               coordinates: { x, y },
               simulator: target,
+              method: "simctl-ui",
             },
             null,
             2
@@ -240,7 +267,7 @@ end tell
       content: [
         {
           type: "text",
-          text: `Failed to tap: ${error instanceof Error ? error.message : String(error)}. Note: UI tap requires Simulator.app to be running and accessible.`,
+          text: `Failed to tap: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
       isError: true,
@@ -258,8 +285,56 @@ export async function uiSwipe(
   const target = udid || "booted";
 
   try {
-    focusSimulatorWindow(udid);
-    // simctl doesn't support swipe directly. For now, return success with a note.
+    // Best-effort focus (simctl doesn't require it, but it helps when mixing tools).
+    try {
+      focusSimulatorWindow(udid);
+    } catch {
+      // Ignore focus errors (e.g., missing Automation permission).
+    }
+
+    const sx = Math.round(startX);
+    const sy = Math.round(startY);
+    const ex = Math.round(endX);
+    const ey = Math.round(endY);
+
+    // Try multiple syntaxes for compatibility across Xcode versions.
+    const baseAttempts = [
+      `ui ${target} swipe ${sx} ${sy} ${ex} ${ey}`,
+      `ui ${target} swipe --from ${sx},${sy} --to ${ex},${ey}`,
+      `ui ${target} drag --from ${sx},${sy} --to ${ex},${ey}`,
+      `ui ${target} drag ${sx} ${sy} ${ex} ${ey}`,
+    ];
+
+    const attempts = [
+      ...baseAttempts.map((cmd) => `${cmd} --duration ${duration}`),
+      ...baseAttempts,
+    ];
+
+    let lastError: unknown;
+    for (const cmd of attempts) {
+      try {
+        simctl(cmd);
+        lastError = undefined;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `Failed to swipe via simctl. ` +
+              `This requires Xcode 15+ with \`xcrun simctl ui\` support.\n\n` +
+              `${lastError instanceof Error ? lastError.message : String(lastError)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
 
     return {
       content: [
@@ -272,7 +347,7 @@ export async function uiSwipe(
               to: { x: endX, y: endY },
               duration,
               simulator: target,
-              note: "Swipe simulation may require Simulator.app window focus",
+              method: "simctl-ui",
             },
             null,
             2
@@ -309,8 +384,9 @@ export async function uiType(
 
     // Use pasteboard approach for longer text
     if (text.length > 10) {
-      // Set pasteboard content
-      execCommand(`printf '%s' "${text.replace(/"/g, '\\"')}" | pbcopy`);
+      // Set pasteboard content using single quotes for safety, escape embedded single quotes
+      const safeText = text.replace(/'/g, "'\\''");
+      execCommand(`printf '%s' '${safeText}' | pbcopy`);
 
       // Paste using Cmd+V via AppleScript
       const script = `
@@ -322,12 +398,13 @@ end tell
 `;
       runAppleScript(script.trim().replace(/\n/g, "\" -e \""));
     } else {
-      // For short text, use keystroke
+      // For short text, use keystroke - escape backslashes first, then quotes
+      const escapedText = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       const script = `
 tell application "Simulator" to activate
 delay 0.1
 tell application "System Events"
-  keystroke "${text.replace(/"/g, '\\"').replace(/\\/g, '\\\\')}"
+  keystroke "${escapedText}"
 end tell
 `;
       runAppleScript(script.trim().replace(/\n/g, "\" -e \""));
@@ -589,7 +666,7 @@ export const uiTools = [
     name: "ui_tap",
     title: "UI Tap",
     description:
-      "Tap at specific coordinates in the iOS Simulator. Coordinates are in points (not pixels). Requires Simulator.app to be running.",
+      "Tap at specific coordinates in the iOS Simulator. Coordinates are in iOS points. Requires Xcode 15+ with `xcrun simctl ui` support.",
     schema: uiTapSchema,
     handler: uiTap,
   },
@@ -597,7 +674,7 @@ export const uiTools = [
     name: "ui_swipe",
     title: "UI Swipe",
     description:
-      "Perform a swipe gesture from one point to another. Useful for scrolling, dismissing, or navigation gestures.",
+      "Perform a swipe gesture from one point to another (iOS points). Useful for scrolling, dismissing, or navigation gestures. Requires Xcode 15+ with `xcrun simctl ui` support.",
     schema: uiSwipeSchema,
     handler: uiSwipe,
   },
@@ -621,7 +698,7 @@ export const uiTools = [
     name: "ui_scroll",
     title: "UI Scroll",
     description:
-      "Scroll the screen in a direction (up, down, left, right). Optionally specify starting coordinates and distance.",
+      "Scroll the screen in a direction (up, down, left, right). Optionally specify starting coordinates and distance (iOS points). Requires Xcode 15+ with `xcrun simctl ui` support.",
     schema: uiScrollSchema,
     handler: uiScroll,
   },

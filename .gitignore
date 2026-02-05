@@ -29,13 +29,20 @@ coverage/
 *.tmp
 /tmp/
 
+# Agent / local tooling
+.claude/settings.local.json
+claude-plan.md
+codex-plan.md
+
 # Claude Code configuration (skills, agents, settings)
 .claude/
 
 # Markdown files (except README and examples)
 *.md
+!AGENTS.md
 !README.md
 !examples/*.md
 
 # ESLint config (optional, dev-only)
 .eslintrc.cjs
+!.eslintrc.cjs
