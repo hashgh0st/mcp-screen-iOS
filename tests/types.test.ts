@@ -9,7 +9,7 @@ describe("APP_STORE_DEVICES", () => {
   it("should have iPhone 6.9 inch configuration", () => {
     const device = APP_STORE_DEVICES["iphone_6.9"];
     expect(device).toBeDefined();
-    expect(device.name).toBe("iPhone 16 Pro Max");
+    expect(device.name).toBe("iPhone 17 Pro Max");
     expect(device.primaryResolution.width).toBe(1320);
     expect(device.primaryResolution.height).toBe(2868);
     expect(device.appStoreClass).toBe("6.9 inch");
@@ -26,7 +26,7 @@ describe("APP_STORE_DEVICES", () => {
   it("should have iPad 13 inch configuration", () => {
     const device = APP_STORE_DEVICES["ipad_13"];
     expect(device).toBeDefined();
-    expect(device.name).toBe("iPad Pro 13-inch (M4)");
+    expect(device.name).toBe("iPad Pro 13-inch (M5)");
     expect(device.primaryResolution.width).toBe(2064);
     expect(device.primaryResolution.height).toBe(2752);
     expect(device.appStoreClass).toBe("13 inch");

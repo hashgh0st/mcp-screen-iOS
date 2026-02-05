@@ -36,13 +36,13 @@ describe("Simulator Tools", () => {
 
       const mockDevices = {
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
             {
               udid: "ABCDEF01-2345-6789-ABCD-EF0123456789",
-              name: "iPhone 16 Pro Max",
+              name: "iPhone 17 Pro Max",
               state: "Booted",
               isAvailable: true,
-              deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro-Max",
+              deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max",
             },
             {
               udid: "DEF456",
@@ -62,7 +62,7 @@ describe("Simulator Tools", () => {
       expect(result.content[0].type).toBe("text");
       const parsed = JSON.parse((result.content[0] as { text: string }).text);
       expect(parsed[0].devices).toHaveLength(1);
-      expect(parsed[0].devices[0].name).toBe("iPhone 16 Pro Max");
+      expect(parsed[0].devices[0].name).toBe("iPhone 17 Pro Max");
     });
 
     it("should filter by booted state", async () => {
@@ -70,7 +70,7 @@ describe("Simulator Tools", () => {
 
       const mockDevices = {
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
             { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16", state: "Booted", isAvailable: true },
             { udid: "DEF456", name: "iPhone 15", state: "Shutdown", isAvailable: true },
           ],
@@ -93,8 +93,8 @@ describe("Simulator Tools", () => {
 
       const mockDevices = {
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro Max", state: "Booted", isAvailable: true },
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 17 Pro Max", state: "Booted", isAvailable: true },
           ],
         },
       };
@@ -114,7 +114,7 @@ describe("Simulator Tools", () => {
 
       const mockDevices = {
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
             { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16", state: "Shutdown", isAvailable: true },
           ],
         },
@@ -365,8 +365,8 @@ describe("UI Tools", () => {
     vi.mocked(simctl).mockReturnValue(
       JSON.stringify({
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
-            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro Max", state: "Booted" },
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
+            { udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", name: "iPhone 17 Pro Max", state: "Booted" },
           ],
         },
       })
@@ -376,7 +376,7 @@ describe("UI Tools", () => {
     await uiTap({ udid: "ABCDEF01-2345-6789-ABCD-EF0123456789", x: 10, y: 20 });
 
     const execCalls = vi.mocked(execCommand).mock.calls.map((call) => call[0]);
-    expect(execCalls.some((call) => call.includes("iPhone 16 Pro Max"))).toBe(true);
+    expect(execCalls.some((call) => call.includes("iPhone 17 Pro Max"))).toBe(true);
   });
 
   it("focuses the booted simulator when udid is omitted in uiType", async () => {
@@ -385,7 +385,7 @@ describe("UI Tools", () => {
     vi.mocked(simctl).mockReturnValue(
       JSON.stringify({
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
             { udid: "B00TED01-2345-6789-ABCD-EF0123456789", name: "iPhone 16 Pro", state: "Booted" },
           ],
         },
@@ -405,7 +405,7 @@ describe("UI Tools", () => {
     vi.mocked(simctl).mockReturnValue(
       JSON.stringify({
         devices: {
-          "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [
+          "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
             { udid: "DE01CE01-2345-6789-ABCD-EF0123456789", name: "iPhone 15 Pro Max", state: "Booted" },
           ],
         },

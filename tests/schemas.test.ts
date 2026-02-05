@@ -88,7 +88,7 @@ describe("Simulator Schemas", () => {
     it("should accept optional runtime", () => {
       const input = {
         deviceClass: "iphone_6.9",
-        runtime: "com.apple.CoreSimulator.SimRuntime.iOS-18-0",
+        runtime: "com.apple.CoreSimulator.SimRuntime.iOS-26-0",
       };
       expect(() => bootAppStoreSimulatorSchema.parse(input)).not.toThrow();
     });

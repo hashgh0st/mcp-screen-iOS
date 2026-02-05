@@ -42,7 +42,7 @@ npm run build
 
 - macOS with Xcode installed
 - Xcode Command Line Tools (`xcode-select --install`)
-- iOS Simulator runtimes (iOS 17+ recommended)
+- iOS 26+ Simulator runtimes
 - Node.js 18+
 
 ## Configuration
@@ -214,8 +214,8 @@ Apple's 2026 requirements focus on two primary display buckets, with multiple ac
 
 | Platform | Required Size | Accepted Dimensions (portrait) | Recommended Simulator |
 |----------|--------------|--------------------------------|-----------------------|
-| **iPhone** | 6.9" (or 6.5" if 6.9" isn't provided) | 1320x2868, 1290x2796, 1260x2736 | iPhone 16 Pro Max |
-| **iPad** | 13" | 2064x2752, 2048x2732 | iPad Pro 13" (M4) |
+| **iPhone** | 6.9" (or 6.5" if 6.9" isn't provided) | 1320x2868, 1290x2796, 1260x2736 | iPhone 17 Pro Max |
+| **iPad** | 13" | 2064x2752, 2048x2732 | iPad Pro 13" (M5) |
 
 The server validates against all accepted sizes for each bucket and reports whether a screenshot matches in portrait or landscape.
 

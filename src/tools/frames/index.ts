@@ -26,6 +26,14 @@ const DEVICE_FRAMES: Record<
     screenHeight: number;
   }
 > = {
+  iphone_17_pro_max: {
+    name: "iPhone 17 Pro Max",
+    cornerRadius: 55,
+    bezelWidth: 12,
+    bezelColor: "#1a1a1a",
+    screenWidth: 1320,
+    screenHeight: 2868,
+  },
   iphone_16_pro_max: {
     name: "iPhone 16 Pro Max",
     cornerRadius: 55,
@@ -42,14 +50,6 @@ const DEVICE_FRAMES: Record<
     screenWidth: 1206,
     screenHeight: 2622,
   },
-  iphone_15_pro_max: {
-    name: "iPhone 15 Pro Max",
-    cornerRadius: 55,
-    bezelWidth: 12,
-    bezelColor: "#1a1a1a",
-    screenWidth: 1290,
-    screenHeight: 2796,
-  },
   ipad_pro_13: {
     name: "iPad Pro 13-inch",
     cornerRadius: 40,
@@ -57,14 +57,6 @@ const DEVICE_FRAMES: Record<
     bezelColor: "#1a1a1a",
     screenWidth: 2064,
     screenHeight: 2752,
-  },
-  ipad_pro_12_9: {
-    name: "iPad Pro 12.9-inch",
-    cornerRadius: 40,
-    bezelWidth: 20,
-    bezelColor: "#1a1a1a",
-    screenWidth: 2048,
-    screenHeight: 2732,
   },
 };
 

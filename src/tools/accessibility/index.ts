@@ -304,6 +304,10 @@ export async function getScreenInfo(
 
     // Known screen dimensions for common devices
     const screenDimensions: Record<string, { width: number; height: number; scale: number }> = {
+      "iPhone 17 Pro Max": { width: 440, height: 956, scale: 3 },
+      "iPhone 17 Pro": { width: 402, height: 874, scale: 3 },
+      "iPhone 17": { width: 393, height: 852, scale: 3 },
+      "iPhone Air": { width: 430, height: 932, scale: 3 },
       "iPhone 16 Pro Max": { width: 440, height: 956, scale: 3 },
       "iPhone 16 Pro": { width: 402, height: 874, scale: 3 },
       "iPhone 16 Plus": { width: 430, height: 932, scale: 3 },
@@ -312,14 +316,12 @@ export async function getScreenInfo(
       "iPhone 15 Pro": { width: 393, height: 852, scale: 3 },
       "iPhone 15 Plus": { width: 430, height: 932, scale: 3 },
       "iPhone 15": { width: 393, height: 852, scale: 3 },
-      "iPhone 14 Pro Max": { width: 430, height: 932, scale: 3 },
-      "iPhone 14 Pro": { width: 393, height: 852, scale: 3 },
-      "iPhone SE (3rd generation)": { width: 375, height: 667, scale: 2 },
+      "iPad Pro 13-inch (M5)": { width: 1032, height: 1376, scale: 2 },
+      "iPad Pro 11-inch (M5)": { width: 834, height: 1210, scale: 2 },
       "iPad Pro 13-inch (M4)": { width: 1032, height: 1376, scale: 2 },
       "iPad Pro 11-inch (M4)": { width: 834, height: 1210, scale: 2 },
-      "iPad Pro (12.9-inch) (6th generation)": { width: 1024, height: 1366, scale: 2 },
-      "iPad Air 13-inch (M2)": { width: 1032, height: 1376, scale: 2 },
-      "iPad Air 11-inch (M2)": { width: 820, height: 1180, scale: 2 },
+      "iPad Air 13-inch (M3)": { width: 1032, height: 1376, scale: 2 },
+      "iPad Air 11-inch (M3)": { width: 820, height: 1180, scale: 2 },
     };
 
     // Default dimensions for unknown devices (iPhone 14 Pro defaults)

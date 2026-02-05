@@ -92,8 +92,8 @@ describe("parseSimctlJson", () => {
   it("should parse JSON output from simctl", () => {
     const mockData = {
       devices: {
-        "iOS 18.0": [
-          { udid: "ABC123", name: "iPhone 16 Pro Max", state: "Booted" }
+        "iOS 26.0": [
+          { udid: "ABC123", name: "iPhone 17 Pro Max", state: "Booted" }
         ]
       }
     };

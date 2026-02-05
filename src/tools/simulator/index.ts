@@ -433,7 +433,7 @@ export const simulatorTools = [
     name: "boot_appstore_simulator",
     title: "Boot App Store Simulator",
     description:
-      "Create and boot a simulator matching App Store screenshot requirements. Supports iPhone 6.9\" (iPhone 16 Pro Max) and iPad 13\" (iPad Pro M4) - the only two required sizes for App Store screenshots.",
+      "Create and boot a simulator matching App Store screenshot requirements. Supports iPhone 6.9\" (iPhone 17 Pro Max) and iPad 13\" (iPad Pro M5) - the only two required sizes for App Store screenshots.",
     schema: bootAppStoreSimulatorSchema,
     handler: bootAppStoreSimulator,
   },
