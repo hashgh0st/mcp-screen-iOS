@@ -455,8 +455,6 @@ export async function uiPressButton(
     focusSimulatorWindow(udid);
     switch (button) {
       case "home":
-        // Home button via simctl
-        simctl(`io ${target} enumerate`); // Wake if needed
         // Use AppleScript for home button (Cmd+Shift+H)
         runAppleScript(`
 tell application "Simulator" to activate

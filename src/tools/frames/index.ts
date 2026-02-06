@@ -5,11 +5,11 @@
  */
 
 import { z } from "zod";
-import { existsSync } from "fs";
-import { dirname, resolve, basename, extname, join } from "path";
+import { existsSync, mkdirSync } from "fs";
+import { dirname, basename, extname, join } from "path";
 import { execCommand, commandExists } from "../../utils/exec.js";
 import { ToolResult } from "../../types/index.js";
-import { sanitizeHexColor, validatePath } from "../../utils/validation.js";
+import { sanitizeHexColor, shellEscape, validatePath } from "../../utils/validation.js";
 
 /**
  * Device frame configurations
@@ -141,7 +141,7 @@ function detectDevice(width: number, height: number): string | null {
  */
 function getImageDimensions(imagePath: string): { width: number; height: number } | null {
   try {
-    const output = execCommand(`sips -g pixelWidth -g pixelHeight "${imagePath}"`);
+    const output = execCommand(`sips -g pixelWidth -g pixelHeight ${shellEscape(imagePath)}`);
     const widthMatch = output.match(/pixelWidth:\s*(\d+)/);
     const heightMatch = output.match(/pixelHeight:\s*(\d+)/);
 
@@ -206,8 +206,24 @@ export async function addFrame(
   // Determine output path
   const ext = extname(fullInputPath);
   const baseName = basename(fullInputPath, ext);
-  const outputDir = dirname(fullInputPath);
-  const fullOutputPath = outputPath ? resolve(outputPath) : join(outputDir, `${baseName}_framed${ext}`);
+  const defaultOutputDir = dirname(fullInputPath);
+  let fullOutputPath: string;
+  try {
+    fullOutputPath = outputPath
+      ? validatePath(outputPath)
+      : join(defaultOutputDir, `${baseName}_framed${ext}`);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid output path: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
+
+  // Ensure output directory exists
+  const outputDir = dirname(fullOutputPath);
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
 
   // Get image dimensions
   const dimensions = getImageDimensions(fullInputPath);
@@ -242,7 +258,9 @@ export async function addFrame(
       const paddedHeight = dimensions.height + padding * 2;
 
       // Create a simple padded version using sips
-      execCommand(`sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} "${fullInputPath}" --out "${fullOutputPath}"`);
+      execCommand(
+        `sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} ${shellEscape(fullInputPath)} --out ${shellEscape(fullOutputPath)}`
+      );
 
       return {
         content: [
@@ -284,7 +302,7 @@ export async function addFrame(
     const totalHeight = dimensions.height + bezelWidth * 2 + padding * 2;
 
     // Build ImageMagick command for frame effect
-    let cmd = `${imageMagick} "${fullInputPath}"`;
+    let cmd = `${imageMagick} ${shellEscape(fullInputPath)}`;
 
     // Add rounded corners to screenshot
     cmd += ` \\( +clone -alpha extract -draw "fill black polygon 0,0 0,${cornerRadius} ${cornerRadius},0 fill white circle ${cornerRadius},${cornerRadius} ${cornerRadius},0" \\( +clone -flip \\) -compose Multiply -composite \\( +clone -flop \\) -compose Multiply -composite \\) -alpha off -compose CopyOpacity -composite`;
@@ -304,7 +322,7 @@ export async function addFrame(
     // Add background and padding (use original backgroundColor with # for ImageMagick)
     cmd += ` -background "#${safeBackgroundColor}" -gravity center -extent ${totalWidth}x${totalHeight}`;
 
-    cmd += ` "${fullOutputPath}"`;
+    cmd += ` ${shellEscape(fullOutputPath)}`;
 
     execCommand(cmd);
 
@@ -379,8 +397,24 @@ export async function addBackground(
 
   const ext = extname(fullInputPath);
   const baseName = basename(fullInputPath, ext);
-  const outputDir = dirname(fullInputPath);
-  const fullOutputPath = outputPath ? resolve(outputPath) : join(outputDir, `${baseName}_bg${ext}`);
+  const defaultOutputDir = dirname(fullInputPath);
+  let fullOutputPath: string;
+  try {
+    fullOutputPath = outputPath
+      ? validatePath(outputPath)
+      : join(defaultOutputDir, `${baseName}_bg${ext}`);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: `Invalid output path: ${error instanceof Error ? error.message : String(error)}` }],
+      isError: true,
+    };
+  }
+
+  // Ensure output directory exists
+  const outputDir = dirname(fullOutputPath);
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
 
   const dimensions = getImageDimensions(fullInputPath);
   if (!dimensions) {
@@ -398,15 +432,15 @@ export async function addBackground(
 
     if (cornerRadius > 0 && imageMagick) {
       // Use ImageMagick to apply rounded corners, then pad/extend with background.
-      let cmd = `${imageMagick} "${fullInputPath}"`;
+      let cmd = `${imageMagick} ${shellEscape(fullInputPath)}`;
       cmd += ` \\( +clone -alpha extract -draw "fill black polygon 0,0 0,${cornerRadius} ${cornerRadius},0 fill white circle ${cornerRadius},${cornerRadius} ${cornerRadius},0" \\( +clone -flip \\) -compose Multiply -composite \\( +clone -flop \\) -compose Multiply -composite \\) -alpha off -compose CopyOpacity -composite`;
       cmd += ` -background "#${safeBackgroundColor}" -gravity center -extent ${paddedWidth}x${paddedHeight}`;
-      cmd += ` "${fullOutputPath}"`;
+      cmd += ` ${shellEscape(fullOutputPath)}`;
       execCommand(cmd);
     } else {
       // Use sips for basic operation (no rounded corners).
       execCommand(
-        `sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} "${fullInputPath}" --out "${fullOutputPath}"`
+        `sips -p ${paddedHeight} ${paddedWidth} --padColor ${safeBackgroundColor} ${shellEscape(fullInputPath)} --out ${shellEscape(fullOutputPath)}`
       );
     }
 

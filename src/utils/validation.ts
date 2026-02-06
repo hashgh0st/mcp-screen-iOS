@@ -2,7 +2,7 @@
  * Input validation utilities for safe command execution
  */
 
-import { resolve } from "path";
+import { resolve, relative, isAbsolute } from "path";
 
 /**
  * Validate hex color format (#RRGGBB or RRGGBB)
@@ -37,7 +37,10 @@ export function validatePath(inputPath: string, allowedBase?: string): string {
   // If allowedBase provided, ensure path is within it
   if (allowedBase) {
     const resolvedBase = resolve(allowedBase);
-    if (!resolved.startsWith(resolvedBase)) {
+    const rel = relative(resolvedBase, resolved);
+    const isInside =
+      rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+    if (!isInside) {
       throw new Error(`Path escapes allowed directory: ${resolved}`);
     }
   }

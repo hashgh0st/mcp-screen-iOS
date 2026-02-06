@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { simctl, parseSimctlJson, simctlAsync } from "../../utils/exec.js";
-import { resolveTarget } from "../../utils/validation.js";
+import { resolveTarget, shellEscape } from "../../utils/validation.js";
 import {
   SimctlListOutput,
   SimulatorDevice,
@@ -314,7 +314,9 @@ export async function bootAppStoreSimulator(
   const simulatorName = `AppStore-${deviceClass}-${Date.now()}`;
   let udid: string;
   try {
-    udid = simctl(`create "${simulatorName}" ${resolvedDeviceType.deviceType} ${runtimeId}`);
+    udid = simctl(
+      `create ${shellEscape(simulatorName)} ${shellEscape(resolvedDeviceType.deviceType)} ${shellEscape(runtimeId)}`
+    );
   } catch (error) {
     return {
       content: [
@@ -394,14 +396,27 @@ export async function shutdownSimulator(
   try {
     simctl(`shutdown ${target}`);
 
-    if (shouldDelete && udid) {
-      // Can only delete specific simulators, not "booted"
-      simctl(`delete ${udid}`);
+    if (shouldDelete) {
+      // Can only delete a specific simulator, not the "booted" alias.
+      const deleteTarget = udid ? resolveTarget(udid) : undefined;
+      if (!deleteTarget || deleteTarget === "booted") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "To delete a simulator, provide a specific simulator UDID (not 'booted').",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      simctl(`delete ${deleteTarget}`);
       return {
         content: [
           {
             type: "text",
-            text: `Simulator ${udid} shutdown and deleted successfully`,
+            text: `Simulator ${deleteTarget} shutdown and deleted successfully`,
           },
         ],
       };

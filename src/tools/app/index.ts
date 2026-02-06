@@ -4,7 +4,6 @@
 
 import { z } from "zod";
 import { existsSync } from "fs";
-import { resolve } from "path";
 import { simctl } from "../../utils/exec.js";
 import { shellEscape, validatePath, resolveTarget } from "../../utils/validation.js";
 import { ToolResult } from "../../types/index.js";

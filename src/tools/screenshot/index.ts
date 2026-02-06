@@ -25,6 +25,9 @@ export const captureScreenshotSchema = z.object({
     .describe("Simulator UDID (defaults to 'booted')"),
   outputPath: z
     .string()
+    .refine((value) => value.trim().toLowerCase().endsWith(".png"), {
+      message: "outputPath must end with .png",
+    })
     .describe("Output file path for the screenshot (must end with .png)"),
   cleanStatusBar: z
     .boolean()
